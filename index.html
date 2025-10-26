@@ -1,0 +1,1867 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Parroquial</title>
+    <!-- Carga Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga FileSaver.js (para descargar DOCX) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <!-- Carga html-docx-js (para descargar DOCX) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-docx-js/0.3.1/html-docx.js"></script>
+    <!-- Fuentes de Google (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Estilos personalizados */
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; /* stone-50 */ }
+        
+        /* Pantalla de Bienvenida (Splash Screen) */
+        #splash-screen {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1510076857177-7470076d4098?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wzNjU5NTh8MHwxfGFsbHx8fHx8fHx8fDE3MjQ1NjA3MDZ8&ixlib=rb-4.0.3&q=80&w=1920');
+            background-size: cover;
+            background-position: center;
+            transition: opacity 1.5s ease-out;
+        }
+        #splash-screen.fade-out { opacity: 0; }
+
+        /* Contenido Principal (Fade-in) */
+        #main-content.opacity-0 { opacity: 0; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Estilo del Header (ocultar al hacer scroll) */
+        #main-header { transition: transform 0.3s ease-in-out; }
+        #main-header.header-hidden { transform: translateY(-100%); }
+
+        /* Estilo de Botón de Navegación Activo */
+        .active-nav {
+            background-color: #0d9488; /* teal-600 */
+            color: white;
+        }
+
+        /* Estilos del Menú Móvil */
+        #mobile-menu {
+            transition: transform 0.3s ease-in-out;
+        }
+        #mobile-menu.menu-hidden {
+            transform: translateX(-100%);
+        }
+
+        /* Estilos para Acordeón */
+        .accordion-header[aria-expanded="true"] .accordion-icon {
+            transform: rotate(180deg);
+        }
+        .accordion-content {
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            overflow: hidden;
+        }
+        .accordion-content:not(.hidden) {
+            max-height: 5000px; /* Valor alto para permitir contenido */
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        /* Corrección para que .hidden funcione con la transición */
+        .accordion-content.hidden {
+            max-height: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+
+
+        /* Estilos para Tarjeta Litúrgica */
+        .liturgical-card {
+            border-left-width: 6px;
+            background-color: white;
+            transition: all 0.2s ease-in-out;
+        }
+        .liturgical-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Estilos para Vista Completa de Liturgia */
+        #full-liturgy-view {
+            animation: slideUp 0.4s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .liturgy-section h2 { font-size: 1.5rem; font-weight: 700; color: #0d9488; /* teal-600 */ margin-top: 1.5rem; margin-bottom: 0.75rem; border-bottom: 2px solid #99f6e4; /* teal-200 */ padding-bottom: 0.25rem; }
+        .liturgy-section h3 { font-size: 1.25rem; font-weight: 600; color: #115e59; /* teal-800 */ margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .liturgy-text { margin-bottom: 1rem; line-height: 1.6; }
+        .rubric, .liturgy-text .rubric { color: #dc2626; /* red-600 */ font-style: italic; }
+        .ref-link { color: #0d9488; font-weight: 600; cursor: pointer; text-decoration: none; }
+        .ref-link:hover { text-decoration: underline; }
+
+        /* Estilos para Leccionario */
+        .lectionary-day-entry { padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .lectionary-day-entry.light-scheme { color: #1f2937; } /* text-gray-800 */
+        .lectionary-day-entry.dark-scheme { color: #f9fafb; } /* text-gray-50 */
+        .lectionary-day-entry h3 { font-size: 1.25rem; font-weight: 700; }
+        .lectionary-day-entry h3.light-scheme { color: #111827; } /* text-gray-900 */
+        .lectionary-day-entry h3.dark-scheme { color: #ffffff; }
+        .lectionary-day-entry p.date-label { font-size: 0.9rem; opacity: 0.85; margin-bottom: 0.5rem; }
+        .lectionary-day-entry p.liturgical-color-label { font-size: 0.9rem; font-style: italic; opacity: 0.85; margin-bottom: 1rem; }
+        .lectionary-day-entry h4 { font-size: 1.1rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.25rem; border-bottom-width: 1px; padding-bottom: 2px; opacity: 0.9; }
+        .lectionary-day-entry h5 { font-weight: 600; margin-top: 0.5rem; }
+        .lectionary-day-entry ul { list-style-type: none; padding-left: 0.5rem; }
+        .lectionary-day-entry li { position: relative; padding-left: 1.25rem; }
+        .lectionary-day-entry li::before { content: '•'; position: absolute; left: 0; opacity: 0.7; }
+
+        /* Estilos para Popup Teológico */
+        #theology-popup-overlay { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
+        #theology-popup { max-width: 500px; transform: translate(-50%, -50%) scale(0.95); animation: popupFadeIn 0.2s ease-out forwards; }
+        @keyframes popupFadeIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        .original-term { font-family: 'Times New Roman', Times, serif; font-size: 1.2rem; }
+
+        /* Estilos de Impresión */
+        @media print {
+            body { background-color: white; }
+            #main-header, #full-liturgy-actions, #back-to-calendar-btn { display: none; }
+            #full-liturgy-view { display: block !important; }
+            #main-content { display: none !important; }
+            .print-liturgy-body { box-shadow: none; border: none; }
+            .liturgy-section h2 { color: #000; border-color: #ccc; }
+            .liturgy-section h3 { color: #000; }
+            .rubric, .liturgy-text .rubric { color: #555 !important; }
+            .ref-link { color: #000; text-decoration: none; font-weight: normal; }
+            .ref-link sup { display: none; } /* Ocultar superíndices al imprimir */
+            .print-only-header { display: block !important; text-align: center; margin-bottom: 2rem; }
+            .print-title { font-size: 18pt; font-weight: bold; }
+            .print-subtitle { font-size: 12pt; font-style: italic; }
+        }
+        .print-only-header { display: none; } /* Oculto por defecto */
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Pantalla de Bienvenida (Splash Screen) -->
+    <div id="splash-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-white">
+        <div class="text-center">
+            <h1 class="text-5xl md:text-7xl font-bold tracking-tight">Comunidad de Gracia</h1>
+            <p class="mt-4 text-xl md:text-2xl opacity-90">Liturgia y Recursos</p>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal de la Aplicación -->
+    <div class_name="min-h-screen flex flex-col">
+
+        <!-- Header Principal -->
+        <header id="main-header" class="fixed top-0 left-0 right-0 z-40 bg-white shadow-md">
+            <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <!-- Logo y Título (Izquierda) -->
+                    <div class="flex items-center space-x-3">
+                        <img id="logo-image" src="https://placehold.co/150x150/FFFFFF/333333?text=LOGO" alt="Logo Parroquial" class="h-10 w-10 rounded-full object-cover">
+                        <span class="font-bold text-lg text-gray-800 hidden sm:block">Portal Parroquial</span>
+                    </div>
+
+                    <!-- Navegación de Escritorio (Centro) -->
+                    <div class="hidden md:flex md:space-x-2">
+                        <button id="btn-home" data-view="home" class="nav-button active-nav">Inicio</button>
+                        <button id="btn-liturgy" data-view="liturgy" class="nav-button">Liturgia</button>
+                        <button id="btn-lectionary" data-view="lectionary" class="nav-button">Leccionario</button>
+                        <button id="btn-glossary" data-view="glossary" class="nav-button">Glosario</button>
+                        <button id="btn-study" data-view="study" class="nav-button">M. de Estudio</button>
+                    </div>
+
+                    <!-- Botón de Menú Móvil (Derecha) -->
+                    <div class="flex items-center md:hidden">
+                        <button id="hamburger-btn" aria-label="Abrir menú" class="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500">
+                            <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Botones de Acción (Derecha - Ocultos en MD) -->
+                    <div class="hidden md:block">
+                         <!-- Espacio reservado si se necesitaran botones de acción en escritorio -->
+                    </div>
+                </div>
+            </nav>
+            <style>
+                .nav-button {
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.375rem; /* rounded-md */
+                    font-weight: 500;
+                    color: #4b5563; /* text-gray-600 */
+                    transition: all 0.2s ease-in-out;
+                }
+                .nav-button:hover {
+                    background-color: #f3f4f6; /* bg-gray-100 */
+                    color: #111827; /* text-gray-900 */
+                }
+            </style>
+        </header>
+
+        <!-- Menú Móvil (Off-canvas) -->
+        <div id="mobile-menu" class="fixed inset-0 z-50 flex menu-hidden md:hidden">
+            <!-- Overlay Oscuro -->
+            <div id="close-menu-btn" class="fixed inset-0 bg-black bg-opacity-50" aria-hidden="true"></div>
+            
+            <!-- Contenido del Menú -->
+            <div class="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+                <!-- Botón de Cerrar (dentro del panel) -->
+                <div class="absolute top-0 right-0 -mr-12 pt-2">
+                    <button type="button" class="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" aria-label="Cerrar menú">
+                        <svg class="h-6 w-6 text-white" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Navegación Móvil -->
+                <div class="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
+                    <div class="flex-shrink-0 flex items-center px-4 space-x-3 mb-5">
+                        <img id="logo-image-mobile" src="https://placehold.co/150x150/FFFFFF/333333?text=LOGO" alt="Logo Parroquial" class="h-10 w-10 rounded-full object-cover">
+                        <span class="font-bold text-lg text-gray-800">Portal Parroquial</span>
+                    </div>
+                    <nav id="mobile-nav-links" class="mt-5 px-2 space-y-1">
+                        <a href="#" data-view="home" class="mobile-nav-link group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-900 bg-gray-100">Inicio</a>
+                        <a href="#" data-view="liturgy" class="mobile-nav-link group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">Liturgia</a>
+                        <a href="#" data-view="lectionary" class="mobile-nav-link group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">Leccionario</a>
+                        <a href="#" data-view="glossary" class="mobile-nav-link group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">Glosario</a>
+                        <a href="#" data-view="study" class="mobile-nav-link group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">M. de Estudio</a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenido Principal (Vistas) -->
+        <!-- mt-16 para dejar espacio al header fijo -->
+        <main id="main-content" class="flex-grow mt-16 opacity-0 transition-opacity duration-1500">
+
+            <!-- Vista 1: Inicio (Home) -->
+            <div id="home-view" class="pt-16 md:pt-24 px-4 md:px-8">
+                <div class="max-w-3xl mx-auto text-center">
+                    <!-- Logo Display -->
+                    <div class="flex justify-center mb-6">
+                        <img id="logo-image" src="https://placehold.co/150x150/FFFFFF/333333?text=LOGO" alt="Logo Parroquial" class="rounded-full h-32 w-32 md:h-40 md:w-40 object-cover border-4 border-white shadow-lg">
+                    </div>
+                    <h2 class="text-3xl md:text-5xl font-bold text-gray-800 tracking-tight">Comunidad de Gracia</h2>
+                    <p class="mt-4 text-lg md:text-xl text-gray-600">Liturgia y Recursos</p>
+                    <button id="btn-upload-logo" class="mt-4 text-sm text-teal-600 hover:text-teal-800">Subir Logo</button>
+                    <input type="file" id="logo-uploader" class="hidden" accept="image/*">
+                </div>
+            </div>
+
+            <!-- Vista 2: Calendario Litúrgico (Liturgy) -->
+            <div id="liturgy-view" class="hidden pt-8 pb-16 px-4 md:px-8">
+                <div class="max-w-4xl mx-auto">
+                    <h2 id="liturgy-view-title" class="text-3xl font-bold text-gray-800 mb-6 text-center">Calendario Litúrgico 2025</h2>
+                    <div id="liturgical-accordion-container" class="space-y-4">
+                        <p class="text-center text-gray-500 py-8">Cargando datos litúrgicos...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista 3: Glosario Teológico (Glossary) -->
+            <div id="glossary-view" class="hidden pt-8 pb-16 px-4 md:px-8">
+                <div class="max-w-4xl mx-auto">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Glosario Teológico</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <p class="text-gray-600">El glosario está integrado en las lecturas. Cuando vea un superíndice como este <span class="ref-link"><sup>[1]</sup></span>, haga clic en él para ver la definición teológica.</p>
+                        <p class="mt-4 text-gray-600">Esta sección podría expandirse en el futuro para incluir una lista completa de todos los términos.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista 4: Leccionario (Lectionary) -->
+            <div id="lectionary-view" class="hidden pt-8 pb-16 px-4 md:px-8">
+                <div class="max-w-4xl mx-auto">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Leccionario del Oficio Diario</h2>
+                    <div id="lectionary-accordion-container" class="space-y-4">
+                         <p class="text-center text-gray-500 py-8">Cargando leccionario...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista 5: Material de Estudio (Study) -->
+            <div id="study-material-view" class="hidden pt-8 pb-16 px-4 md:px-8">
+                <div class="max-w-5xl mx-auto">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Material de Estudio</h2>
+                    <div id="study-material-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <p class="text-center text-gray-500 py-8 md:col-span-2">Cargando materiales...</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Vista de Texto Completo (para Guía Anglocatólica, etc.) -->
+    <div id="full-text-view" class="hidden fixed inset-0 z-40 bg-stone-50 overflow-y-auto pt-16">
+        <div class="relative max-w-3xl mx-auto p-4 md:p-8">
+            <button id="back-from-text-btn" class="absolute top-4 left-4 md:top-6 md:left-0 text-teal-600 hover:text-teal-800 font-medium z-10">
+                &larr; Volver
+            </button>
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg mt-10">
+                <h2 id="full-text-title" class="text-2xl md:text-3xl font-bold text-gray-900 mb-4"></h2>
+                <div id="full-text-content" class="prose max-w-none">
+                    <!-- Contenido se inyecta aquí -->
+                </div>
+            </div>
+        </div>
+        <style>.prose h3 { font-size: 1.25rem; font-weight: 600; color: #115e59; margin-top: 1.5rem; margin-bottom: 0.5rem; } .prose p { margin-bottom: 1rem; } .prose ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; } .prose li { margin-bottom: 0.25rem; }</style>
+    </div>
+
+
+    <!-- Vista de Liturgia Completa (Full Screen View) -->
+    <div id="full-liturgy-view" class="hidden fixed inset-0 z-40 bg-stone-100 overflow-y-auto pt-16">
+        <div class="relative max-w-3xl mx-auto p-4 md:p-8">
+            <!-- Botón de Volver -->
+            <button id="back-to-calendar-btn" class="absolute top-4 left-4 md:top-6 md:left-0 text-teal-600 hover:text-teal-800 font-medium z-10">
+                &larr; Volver al Calendario
+            </button>
+
+            <!-- Acciones (Imprimir/Descargar) -->
+            <div id="full-liturgy-actions" class="flex justify-end space-x-2 mb-4">
+                <button id="print-btn" class="action-btn">Imprimir</button>
+                <button id="download-docx-btn" class="action-btn">Descargar .docx</button>
+            </div>
+            <style>
+                .action-btn { background-color: white; border: 1px solid #cbd5e1; /* border-slate-300 */ color: #334155; /* text-slate-700 */ padding: 0.375rem 0.75rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.375rem; /* rounded-md */ box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); transition: all 0.2s; }
+                .action-btn:hover { background-color: #f8fafc; /* bg-slate-50 */ border-color: #94a3b8; /* border-slate-400 */ }
+            </style>
+
+            <!-- Contenido de la Liturgia -->
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg">
+                <div class="print-only-header"></div> <!-- Contenedor para el título/subtítulo de impresión -->
+                <h2 id="full-liturgy-title" class="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Título de la Liturgia</h2>
+                <p id="full-liturgy-subtitle" class="text-md text-gray-600 mb-6 italic">Subtítulo (Fecha y Ciclo)</p>
+                
+                <div id="full-liturgy-content">
+                    <!-- Contenido se inyecta aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup para Términos Teológicos -->
+    <div id="theology-popup-overlay" class="fixed inset-0 z-50 hidden"></div>
+    <div id="theology-popup" class="fixed top-1/2 left-1/2 z-50 w-11/12 max-w-lg bg-white rounded-lg shadow-xl p-6 hidden">
+        <button id="popup-close" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div id="popup-content-theology">
+            <!-- Contenido del término se inyecta aquí -->
+        </div>
+    </div>
+
+    <!-- Indicador de Carga Global (Spinner) -->
+    <div id="loading-overlay" class="fixed inset-0 z-50 bg-black bg-opacity-30 flex items-center justify-center hidden" aria-live="assertive" aria-label="Cargando datos">
+        <div class="w-16 h-16 border-4 border-white border-t-teal-500 rounded-full animate-spin"></div>
+    </div>
+
+
+    <!-- 
+    ================================================================
+    SCRIPT BLOQUE 1: Configuración de Firebase
+    Define 'window.firebaseInitializationPromise'
+    ================================================================
+    -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, getDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase Configuration ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let firebaseConfig = null;
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        } catch (e) {
+            console.error("Error parsing Firebase config:", e);
+        }
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Module Variables ---
+        let db, auth, userId = null;
+        let unsubscribeListeners = []; // Array para guardar los 'unsubscribers'
+        let firebaseInitializationPromise = null;
+
+        // --- Error Display Function ---
+        function showFirebaseError(message) {
+            console.error("Firebase Error:", message);
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) {
+                 mainContent.innerHTML = `<div class="p-4 m-4 bg-red-100 border border-red-400 text-red-700 rounded relative" role="alert">
+                    <strong class="font-bold">Error de Firebase!</strong>
+                    <span class="block sm:inline">${message}. Por favor, recarga la página o contacta al administrador.</span>
+                 </div>`;
+                 mainContent.classList.remove('opacity-0');
+            }
+            const splashScreen = document.getElementById('splash-screen');
+            if(splashScreen) splashScreen.style.display = 'none';
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
+        }
+
+        // --- Core Initialization Logic ---
+        async function initializeFirebaseInternal() {
+            console.log("Attempting Firebase initialization...");
+            if (!firebaseConfig) {
+                const errorMsg = "Error de Configuración: No se pudo cargar la configuración de Firebase.";
+                showFirebaseError(errorMsg);
+                throw new Error(errorMsg);
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('Debug');
+                console.log("Firebase App, Firestore, Auth services initialized.");
+
+                return new Promise((resolve, reject) => {
+                    let initialAuthCheckComplete = false;
+                    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+                        if (initialAuthCheckComplete) {
+                            userId = user?.uid || null;
+                            console.log("Auth state changed (subsequent), User ID:", userId);
+                            return;
+                        };
+                        initialAuthCheckComplete = true;
+
+                        try {
+                            if (user) {
+                                console.log("User already signed in:", user.uid);
+                                userId = user.uid;
+                            } else {
+                                console.log("No user signed in, attempting sign in...");
+                                if (initialAuthToken) {
+                                    console.log("Signing in with custom token...");
+                                    await signInWithCustomToken(auth, initialAuthToken);
+                                } else {
+                                    console.log("Signing in anonymously...");
+                                    await signInAnonymously(auth);
+                                }
+                                userId = auth.currentUser?.uid;
+                            }
+                            
+                            if (userId) {
+                                console.log("Sign in successful, user ID:", userId);
+                                console.log("Firebase auth state established.");
+                                resolve(); // Initialization successful
+                            } else {
+                                throw new Error("Firebase sign-in attempt failed, no user found.");
+                            }
+                        } catch (authError) {
+                            console.error("Error during sign-in or auth state handling:", authError);
+                            const errorMsg = `Error de Autenticación: ${authError.message}`;
+                            showFirebaseError(errorMsg);
+                            reject(new Error(errorMsg));
+                        }
+                    }, (error) => {
+                        initialAuthCheckComplete = true;
+                        console.error("Error subscribing to auth state changes:", error);
+                        const errorMsg = `Error de Suscripción Auth: ${error.message}`;
+                        showFirebaseError(errorMsg);
+                        reject(new Error(errorMsg));
+                    });
+                });
+
+            } catch (initError) {
+                console.error("Firebase SDK initialization failed:", initError);
+                const errorMsg = `Error de Inicialización SDK: ${initError.message}`;
+                showFirebaseError(errorMsg);
+                throw new Error(errorMsg);
+            }
+        }
+
+        // --- Listener Management ---
+        function detachAllListeners() {
+            console.log(`Detaching ${unsubscribeListeners.length} Firestore listeners.`);
+            unsubscribeListeners.forEach(unsubscribe => {
+                try { unsubscribe(); } catch (e) { console.warn("Error detaching listener:", e); }
+            });
+            unsubscribeListeners = [];
+        }
+
+        // *** FIX: Función para AÑADIR un 'unsubscriber' al array ***
+        function addFirestoreListenerHandle(unsubscribe) {
+            if (unsubscribe && typeof unsubscribe === 'function') {
+                unsubscribeListeners.push(unsubscribe);
+            }
+        }
+
+        // --- Expose functions & Promise globally ---
+        window.getFirestoreInstance = () => db;
+        window.getAuthInstance = () => auth;
+        window.getUserId = () => userId;
+        window.getAppId = () => appId;
+        window.detachAllListeners = detachAllListeners;
+        // *** FIX: Exponer la nueva función handle ***
+        window.addFirestoreListenerHandle = addFirestoreListenerHandle;
+        
+        // Create the promise and assign it to the window object
+        firebaseInitializationPromise = initializeFirebaseInternal();
+        window.firebaseInitializationPromise = firebaseInitializationPromise;
+
+        console.log("Firebase setup script executed, initialization process started.");
+    </script>
+
+
+    <!-- 
+    ================================================================
+    SCRIPT BLOQUE 2: Lógica de la Aplicación (App)
+    Espera 'window.firebaseInitializationPromise'
+    ================================================================
+    -->
+    <script type="module">
+        // This script runs AFTER the Firebase setup script above
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Loading shown immediately when DOM is ready
+            App.ui.showLoading(true);
+            console.log("DOMContentLoaded event fired.");
+
+            try {
+                // Wait for the Firebase initialization promise (created in the first script) to resolve
+                if (window.firebaseInitializationPromise) {
+                    console.log("Waiting for Firebase initialization promise...");
+                    await window.firebaseInitializationPromise; // Wait until Firebase app/auth is ready
+                    console.log("Firebase initialization promise resolved successfully.");
+
+                    App.state.isAuthReady = true;
+                    App.init(); // This will select elements, set events, and trigger initial data load
+
+                } else {
+                     console.error("Firebase initialization promise (window.firebaseInitializationPromise) was not found.");
+                     throw new Error("Firebase initialization failed to start.");
+                }
+            } catch (error) {
+                console.error("Error during Firebase initialization wait or App setup:", error);
+                // Error should have been displayed by showFirebaseError already
+                App.ui.showLoading(false);
+                // MANUALLY HIDE SPLASH/SHOW MAIN ON INIT ERROR
+                // *** FIX: Usar getElementById porque App.ui.elements puede no estar listo ***
+                const splash = document.getElementById('splash-screen');
+                const main = document.getElementById('main-content');
+                if (splash) splash.style.display = 'none';
+                if (main) main.classList.remove('opacity-0');
+            }
+            // Note: Loading overlay/splash screen is hidden within loadAllDataFromFirestore upon success,
+            // or by showFirebaseError / the catch block above on failure.
+            console.log("DOMContentLoaded handler finished.");
+        });
+
+        const App = {
+            state: {
+                currentView: 'home',
+                liturgyDataCache: {}, // Cache for fetched liturgy details (per year)
+                lectionaryData: {}, // Holds fetched lectionary data (MM-DD keys)
+                collectsData: {}, // Holds fetched collects data (Key keys)
+                termsData: {}, // Holds fetched theological terms (Key keys)
+                studyMaterials: [], // Holds fetched study materials (Array of objects)
+                isAuthReady: false, // Flag for auth completion
+                currentYear: new Date().getFullYear(),
+                isLoading: false,
+            },
+
+            // --- DATA ---
+            data: {
+                // Static content like Anglocatholic guide
+                angloCatholicLiturgy: {"title":"Guía de la Liturgia Anglocatólica","content":"<div class='space-y-6'><div><h3 class='text-xl font-bold text-teal-800 mb-2'>I. Ritos Iniciales</h3><p>Los Ritos Iniciales reúnen a la asamblea y la preparan para escuchar la Palabra de Dios y celebrar la Eucaristía.</p><ul class='list-disc list-inside space-y-1 pl-4'><li><strong>Procesión de Entrada:</strong> El sacerdote y los ministros entran mientras la congregación canta un himno.</li><li><strong>Saludo:</strong> El sacerdote saluda al pueblo.</li><li><strong>Acto Penitencial:</strong> La asamblea reflexiona sobre sus pecados y pide el perdón de Dios.</li><li><strong>Kyrie Eleison:</strong> Se canta o recita 'Señor, ten piedad'.</li><li><strong>Gloria in Excelsis:</strong> Un antiguo himno de alabanza a Dios (se omite en Adviento y Cuaresma).</li><li><strong>Oración Colecta:</strong> El sacerdote ofrece la oración de apertura que 'recoge' las intenciones de la asamblea.</li></ul></div><div><h3 class='text-xl font-bold text-teal-800 mb-2'>II. Liturgia de la Palabra</h3><p>En la Liturgia de la Palabra, escuchamos las lecturas de las Sagradas Escrituras y la homilía.</p><ul class='list-disc list-inside space-y-1 pl-4'><li><strong>Primera Lectura:</strong> Generalmente del Antiguo Testamento.</li><li><strong>Salmo Responsorial:</strong> La congregación responde a la lectura con un salmo.</li><li><strong>Segunda Lectura:</strong> Generalmente de las Epístolas del Nuevo Testamento.</li><li><strong>Aclamación del Evangelio (Aleluya):</strong> Un canto de alabanza para recibir el Evangelio.</li><li><strong>Evangelio:</strong> Lectura de uno de los cuatro Evangelios.</li><li><strong>Homilía:</strong> El sacerdote o diácono explica las lecturas y las aplica a la vida diaria.</li><li><strong>Credo:</strong> La profesión de fe (Credo Niceno o de los Apóstoles).</li><li><strong>Oración de los Fieles:</strong> Oraciones por las necesidades de la Iglesia y del mundo.</li></ul></div><div><h3 class='text-xl font-bold text-teal-800 mb-2'>III. Liturgia de la Eucaristía</h3><p>Esta es la parte central de la Misa, donde se consagran el pan y el vino.</p><ul class='list-disc list-inside space-y-1 pl-4'><li><strong>Ofertorio:</strong> Se presentan los dones de pan y vino.</li><li><strong>Oración sobre las Ofrendas:</strong> El sacerdote ofrece una oración sobre los dones.</li><li><strong>Plegaria Eucarística:</strong> El corazón de la celebración, que incluye:</li><ul class='list-disc list-inside space-y-1 pl-8'><li><strong>Prefacio:</strong> Una acción de gracias a Dios Padre.</li><li><strong>Sanctus:</strong> El canto del 'Santo, Santo, Santo'.</li><li><strong>Epíclesis:</strong> La invocación al Espíritu Santo sobre los dones.</li><li><strong>Relato de la Institución:</strong> Las palabras de Jesús en la Última Cena.</li><li><strong>Anámnesis:</strong> El memorial de la Pasión, Resurrección y Ascensión de Cristo.</li><li><strong>Doxología:</strong> La aclamación final de alabanza.</li></ul><li><strong>Rito de la Comunión:</strong></li><ul class='list-disc list-inside space-y-1 pl-8'><li><strong>Padrenuestro:</strong> La oración que el Señor nos enseñó.</li><li><strong>Signo de la Paz:</strong> Los miembros de la congregación intercambian un signo de paz.</li><li><strong>Agnus Dei (Cordero de Dios):</strong> Se canta mientras el sacerdote parte el pan.</li><li><strong>Comunión:</strong> La recepción del Cuerpo y la Sangre de Cristo.</li></ul><li><strong>Oración después de la Comunión:</strong> El sacerdote ofrece una oración final de acción de gracias.</li></ul></div><div><h3 class='text-xl font-bold text-teal-800 mb-2'>IV. Ritos de Conclusión</h3><p>Los ritos finales envían a la asamblea a amar y servir al Señor.</p><ul class='list-disc list-inside space-y-1 pl-4'><li><strong>Bendición Final:</strong> El sacerdote bendice a la congregación.</li><li><strong>Despedida:</strong> El diácono o sacerdote despide al pueblo.</li><li><strong>Procesión de Salida:</strong> El sacerdote y los ministros salen mientras se canta un himno final.</li></ul></div></div>"}
+            },
+
+            // --- UI ---
+             ui: {
+                elements: {}, 
+
+                showLoading(show) {
+                    const overlay = this.elements.loadingOverlay || document.getElementById('loading-overlay');
+                    if (overlay) {
+                        overlay.style.display = show ? 'flex' : 'none';
+                    }
+                    App.state.isLoading = show;
+                },
+
+                selectElements() {
+                    const els = this.elements;
+                    els.loadingOverlay = document.getElementById('loading-overlay');
+                    els.splashScreen = document.getElementById('splash-screen');
+                    els.mainContent = document.getElementById('main-content');
+                    els.fullLiturgyView = document.getElementById('full-liturgy-view');
+                    els.backToCalendarBtn = document.getElementById('back-to-calendar-btn');
+                    els.printBtn = document.getElementById('print-btn');
+                    els.downloadDocxBtn = document.getElementById('download-docx-btn');
+                    els.hamburgerBtn = document.getElementById('hamburger-btn');
+                    els.mobileMenu = document.getElementById('mobile-menu');
+                    els.closeMenuBtn = document.getElementById('close-menu-btn');
+                    els.mobileNavLinks = document.getElementById('mobile-nav-links');
+                    els.mainHeader = document.getElementById('main-header');
+
+                    els.mainNavButtons = {
+                        home: document.getElementById('btn-home'),
+                        liturgy: document.getElementById('btn-liturgy'),
+                        glossary: document.getElementById('btn-glossary'),
+                        lectionary: document.getElementById('btn-lectionary'),
+                        study: document.getElementById('btn-study')
+                    };
+                    els.views = {
+                        home: document.getElementById('home-view'),
+                        liturgy: document.getElementById('liturgy-view'),
+                        glossary: document.getElementById('glossary-view'),
+                        lectionary: document.getElementById('lectionary-view'),
+                        study: document.getElementById('study-material-view')
+                    };
+
+                    els.fullLiturgyUI = {
+                        title: document.getElementById('full-liturgy-title'),
+                        subtitle: document.getElementById('full-liturgy-subtitle'),
+                        content: document.getElementById('full-liturgy-content')
+                    };
+                    els.uploadLogoBtn = document.getElementById('btn-upload-logo');
+                    els.logoUploader = document.getElementById('logo-uploader');
+                    // *** FIX: Seleccionar los 3 elementos del logo ***
+                    els.logoImage = document.getElementById('home-view').querySelector('#logo-image'); // Logo en Home
+                    els.logoImageMobile = document.getElementById('logo-image-mobile'); // Logo en Menú Móvil
+                    els.logoImageHeader = document.querySelector('#main-header #logo-image'); // Logo en Header
+
+
+                    els.theologyPopup = document.getElementById('theology-popup');
+                    els.theologyPopupOverlay = document.getElementById('theology-popup-overlay');
+                    els.theologyPopupContent = document.getElementById('popup-content-theology');
+                    els.theologyPopupClose = document.getElementById('popup-close');
+
+                    els.liturgicalAccordionContainer = document.getElementById('liturgical-accordion-container');
+                    els.lectionaryAccordionContainer = document.getElementById('lectionary-accordion-container');
+                    els.liturgyViewTitle = document.getElementById('liturgy-view-title');
+
+                    els.studyMaterialContainer = document.getElementById('study-material-container');
+
+                    els.fullTextView = document.getElementById('full-text-view');
+                    els.fullTextTitle = document.getElementById('full-text-title');
+                    els.fullTextContent = document.getElementById('full-text-content');
+                    els.backFromTextBtn = document.getElementById('back-from-text-btn');
+                    console.log("UI Elements selected.");
+                },
+
+                _createAccordionItem(id, headerText, contentGenerator) {
+                    const contentId = `accordion-content-${id}`;
+                    const headerId = `accordion-header-${id}`;
+
+                    const accordionItem = document.createElement('div');
+                    accordionItem.className = 'overflow-hidden rounded-lg bg-white shadow-sm';
+
+                    accordionItem.innerHTML = `
+                        <button
+                            id="${headerId}"
+                            class="accordion-header flex justify-between items-center w-full p-4 text-left font-semibold text-gray-800 bg-gray-50 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            aria-expanded="false"
+                            aria-controls="${contentId}"
+                        >
+                            <span class="text-lg">${headerText}</span>
+                            <svg class="accordion-icon w-6 h-6 transform transition-transform duration-300 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div
+                            id="${contentId}"
+                            class="accordion-content p-4 bg-white border-t border-gray-200 hidden"
+                            role="region"
+                            aria-labelledby="${headerId}"
+                        >
+                            <!-- Content generated by contentGenerator -->
+                        </div>
+                    `;
+
+                    const contentPanel = accordionItem.querySelector('.accordion-content');
+                    try {
+                         contentGenerator(contentPanel);
+                    } catch (error) {
+                        console.error(`Error generating content for accordion item ${id}:`, error);
+                        contentPanel.innerHTML = '<p class="text-red-600">Error al generar contenido.</p>';
+                    }
+
+                    return accordionItem;
+                },
+
+                 switchView(viewName) {
+                    if (App.state.isLoading && viewName !== 'home') {
+                        console.warn("Attempted to switch view while loading.");
+                        return;
+                     }
+
+                    if (!App.state.isAuthReady && viewName !== 'home') {
+                        console.log("Auth not ready, cannot switch view yet.");
+                        return;
+                    }
+
+                    console.log(`Switching view to: ${viewName}`);
+                    App.state.currentView = viewName;
+
+                    Object.entries(this.elements.views).forEach(([key, viewElement]) => {
+                        if(viewElement) {
+                            if (key === viewName) {
+                                viewElement.classList.remove('hidden');
+                                viewElement.classList.add('fade-in');
+                            } else {
+                                viewElement.classList.add('hidden');
+                            }
+                        } else {
+                            console.warn(`View element not found for key: ${key}`);
+                        }
+                    });
+
+                    // Update active nav button styling
+                    Object.values(this.elements.mainNavButtons).forEach(button => button?.classList.remove('active-nav'));
+                    if (this.elements.mainNavButtons[viewName]) {
+                        this.elements.mainNavButtons[viewName].classList.add('active-nav');
+                    }
+                    
+                    // *** FIX: Update mobile nav styling ***
+                    this.elements.mobileNavLinks?.querySelectorAll('.mobile-nav-link').forEach(link => {
+                        if (link.dataset.view === viewName) {
+                            link.classList.add('bg-gray-100', 'text-gray-900');
+                            link.classList.remove('text-gray-600', 'hover:bg-gray-50', 'hover:text-gray-900');
+                        } else {
+                            link.classList.remove('bg-gray-100', 'text-gray-900');
+                            link.classList.add('text-gray-600', 'hover:bg-gray-50', 'hover:text-gray-900');
+                        }
+                    });
+
+
+                    const currentYearStr = String(App.state.currentYear);
+                    if (viewName === 'liturgy') {
+                        if (this.elements.liturgicalAccordionContainer && this.elements.liturgicalAccordionContainer.dataset.rendered !== currentYearStr) {
+                             console.log("Rendering liturgy cards for", currentYearStr);
+                             this.renderLiturgicalCards();
+                        }
+                    } else if (viewName === 'lectionary') {
+                         if (this.elements.lectionaryAccordionContainer && this.elements.lectionaryAccordionContainer.dataset.rendered !== currentYearStr) {
+                             console.log("Rendering lectionary accordion for", currentYearStr);
+                             this.renderLectionaryAccordion();
+                        }
+                    } else if (viewName === 'study') {
+                         if (this.elements.studyMaterialContainer && !this.elements.studyMaterialContainer.dataset.rendered) {
+                             console.log("Rendering study materials");
+                             this.renderStudyMaterials();
+                        }
+                    }
+
+                    window.scrollTo(0, 0);
+                },
+
+                renderLiturgicalCards() {
+                    const container = this.elements.liturgicalAccordionContainer;
+                    if (!container) {
+                        console.error("Liturgical accordion container not found.");
+                        return;
+                    }
+                    container.innerHTML = '';
+                    if (this.elements.liturgyViewTitle) {
+                        this.elements.liturgyViewTitle.textContent = `Calendario Litúrgico ${App.state.currentYear}`;
+                    }
+
+                    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                    const yearData = App.state.liturgyDataCache[App.state.currentYear];
+
+                     if (!yearData || Object.keys(yearData).length === 0) {
+                        container.innerHTML = `<p class="text-center text-gray-500 py-8">No hay datos litúrgicos disponibles para ${App.state.currentYear}. Compruebe la conexión o la base de datos.</p>`;
+                        console.warn(`No liturgy data found for year ${App.state.currentYear}.`);
+                         container.dataset.rendered = String(App.state.currentYear);
+                        return;
+                    }
+
+                    months.forEach((monthName, monthIndex) => {
+                        const headerText = `${monthName} ${App.state.currentYear}`;
+
+                        const contentGenerator = (contentPanel) => {
+                            contentPanel.innerHTML = '';
+                            contentPanel.classList.add('space-y-4');
+                            let hasContent = false;
+
+                            const monthDates = Object.keys(yearData)
+                                .map(dateStr => {
+                                    const parts = dateStr.split('-');
+                                    if(parts.length === 3) {
+                                         return new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+                                    }
+                                    return null;
+                                })
+                                .filter(d => d && d.getUTCFullYear() === App.state.currentYear && d.getUTCMonth() === monthIndex)
+                                .sort((a, b) => a.getUTCDate() - b.getUTCDate());
+
+
+                            if (monthDates.length === 0) {
+                                contentPanel.innerHTML = '<p class="text-sm text-gray-400 italic">No hay entradas litúrgicas específicas para este mes.</p>';
+                                return;
+                            }
+
+                            monthDates.forEach(d => {
+                                const dateString = App.services.toYYYYMMDD(d);
+                                if (!dateString) return;
+
+                                const liturgyData = yearData[dateString];
+
+                                if (liturgyData) {
+                                    hasContent = true;
+                                    const card = document.createElement('div');
+                                    card.className = 'liturgical-card flex items-center p-4 rounded-lg shadow-md cursor-pointer';
+                                    const color = liturgyData.seasonColor || App.services.getSeasonColorForDate(d);
+                                    card.style.borderColor = color;
+                                    card.dataset.date = dateString;
+
+                                    const displayDate = d.getUTCDate();
+                                    const displayMonth = d.toLocaleDateString('es-ES', { month: 'short', timeZone: 'UTC' }).replace('.', '');
+                                    const displayWeekday = d.toLocaleDateString('es-ES', { weekday: 'short', timeZone: 'UTC' }).replace('.', '');
+
+
+                                    card.innerHTML = `
+                                        <div class="flex-shrink-0 w-20 text-center">
+                                            <p class="text-gray-500 text-sm">${displayWeekday}</p>
+                                            <p class="text-2xl font-bold text-gray-800">${displayDate}</p>
+                                            <p class="text-gray-500 text-sm">${displayMonth}</p>
+                                        </div>
+                                        <div class="flex-grow pl-4 min-w-0">
+                                            <h3 class="font-bold text-lg text-gray-900 truncate">${liturgyData.title || 'Día Litúrgico'}</h3>
+                                            <p class="text-sm text-gray-600">${liturgyData.cycle || 'Ciclo Desconocido'}</p>
+                                        </div>
+                                        <div class="flex-shrink-0">
+                                           <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                        </div>
+                                    `;
+                                    contentPanel.appendChild(card);
+                                }
+                            });
+
+                            if (!hasContent) {
+                                contentPanel.innerHTML = '<p class="text-sm text-gray-400 italic">No hay entradas litúrgicas específicas para este mes.</p>';
+                            }
+                        };
+
+                        const accordionItem = this._createAccordionItem(`liturgy-${monthName}-${App.state.currentYear}`, headerText, contentGenerator);
+                        container.appendChild(accordionItem);
+                    });
+                     container.dataset.rendered = String(App.state.currentYear);
+                },
+
+
+                 renderFullLiturgyView(date) {
+                     if (!(date instanceof Date) || isNaN(date)) {
+                        console.error("Invalid date passed to renderFullLiturgyView:", date);
+                         if(this.elements.fullLiturgyUI?.content) {
+                             this.elements.fullLiturgyUI.content.innerHTML = `<div class="bg-white p-8 rounded-lg shadow-md text-center"><p class="text-red-600 py-16">Error: Fecha inválida proporcionada.</p></div>`;
+                         }
+                        return;
+                    }
+
+                    const liturgy = App.services.getLiturgyForDate(date);
+                    const { title: titleEl, subtitle: subtitleEl, content: contentEl } = this.elements.fullLiturgyUI;
+
+                    if (!titleEl || !subtitleEl || !contentEl) {
+                        console.error("Full liturgy UI elements not found.");
+                        return;
+                    }
+
+                    if (liturgy && liturgy.title && liturgy.readings && liturgy.prayers) {
+                        titleEl.textContent = liturgy.title;
+                        subtitleEl.textContent = `${date.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })} | ${liturgy.cycle || App.services.calculateBaseLiturgyInfo(date).cycle}`;
+
+                        const ref = App.services._createRefLink.bind(App.services);
+                        const templates = App.services.getLiturgyTemplates(liturgy, ref);
+
+                        const entranceProcession = `<h3>Procesión de Entrada</h3><p class="liturgy-text rubric">(Todos de pie. Se canta un himno o antífona de entrada apropiado)</p>`;
+                        const introductoryRites = entranceProcession +
+                            templates.initialGreeting +
+                            templates.collectForPurity +
+                            templates.penitentialAct +
+                            (liturgy.omitGloria ? '' : templates.gloria) +
+                            `<h3>Oración Colecta</h3><p class="liturgy-text">${liturgy.prayers.collect || 'Colecta no disponible.'}</p><p class="liturgy-text rubric">(La congregación se sienta para las lecturas)</p>`;
+
+                        const psalmResponse = liturgy.readings.psalm?.response || 'Respuesta del salmo.';
+                        const psalmStanzas = Array.isArray(liturgy.readings.psalm?.stanzas) ? liturgy.readings.psalm.stanzas : ['Estrofa(s) no disponible(s).'];
+                        let psalmContentHtml = `<strong>R. ${psalmResponse}</strong><br><br>` + psalmStanzas.join(`<br><br><strong>R. ${psalmResponse}</strong><br><br>`);
+
+                        const verseForAcclamation = liturgy.readings.alleluiaVerse || '';
+                        let gospelAcclamationHtml = (liturgy.omitAlleluia ? templates.gospelAcclamation(verseForAcclamation) : templates.alleluia(verseForAcclamation));
+
+                        let liturgyOfTheWord = `<h3>Lectura de ${liturgy.readings.firstReading?.ref || 'Lectura I'}</h3><p class="liturgy-text">${liturgy.readings.firstReading?.text || 'Texto no disponible.'}</p>`;
+                        liturgyOfTheWord += `<h3>Salmo Responsorial: ${liturgy.readings.psalm?.ref || 'Salmo'}</h3><p class="liturgy-text">${psalmContentHtml}</p>`;
+                        if (liturgy.readings.secondReading && liturgy.readings.secondReading.text && liturgy.readings.secondReading.text !== 'Texto de la segunda lectura no disponible.') {
+                            liturgyOfTheWord += `<h3>Lectura de ${liturgy.readings.secondReading.ref || 'Lectura II'}</h3><p class="liturgy-text">${liturgy.readings.secondReading.text}</p>`;
+                        }
+                        liturgyOfTheWord += `<p class="liturgy-text rubric">(Todos de pie)</p>${gospelAcclamationHtml}`;
+                        liturgyOfTheWord += templates.gospel(liturgy.readings.gospel || { ref: 'Evangelio', text: 'Texto no disponible.' });
+                        liturgyOfTheWord += `<h3>Homilía</h3><p class="liturgy-text rubric">(La congregación se sienta. Reflexión sobre las lecturas)</p>${templates.credo}${templates.prayerOfTheFaithful}<p class="liturgy-text rubric">(La congregación se sienta para el ofertorio)</p>`;
+
+                        const offertory = templates.offertory(liturgy.prayers.offerings || 'Oración sobre las ofrendas no disponible.');
+                        const eucharisticPrayer = templates.eucharisticPrayerII(liturgy.prayers.preface || 'Prefacio no disponible.');
+                        const communionRite = templates.communionRite;
+                        const liturgyOfTheEucharist = offertory + eucharisticPrayer + communionRite;
+
+                        const concludingRites = `<h3>Oración después de la Comunión</h3><p class="liturgy-text">${liturgy.prayers.postCommunion || 'Oración post-comunión no disponible.'}</p>${templates.acnaPostCommunion}${templates.concludingRites}`;
+
+                        contentEl.innerHTML = `<div class="bg-white p-6 rounded-lg shadow-md print-liturgy-body">
+                            <div class="liturgy-section"><h2>Ritos Iniciales</h2>${introductoryRites}</div>
+                            <div class="liturgy-section"><h2>Liturgia de la Palabra</h2>${liturgyOfTheWord}</div>
+                            <div class="liturgy-section"><h2>Liturgia Eucarística</h2>${liturgyOfTheEucharist}</div>
+                            <div class="liturgy-section"><h2>Ritos de Conclusión</h2>${concludingRites}</div>
+                        </div>`;
+                    } else {
+                        titleEl.textContent = liturgy?.title || 'Liturgia no Disponible';
+                        subtitleEl.textContent = date.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+                        contentEl.innerHTML = `<div class="bg-white p-8 rounded-lg shadow-md text-center"><p class="text-gray-600 py-16">Lo sentimos, los detalles completos para la liturgia de este día (${App.services.toYYYYMMDD(date)}) no están disponibles en la base de datos.</p></div>`;
+                        console.warn("Incomplete or missing liturgy data for rendering:", App.services.toYYYYMMDD(date), liturgy);
+                    }
+                },
+
+
+                showFullLiturgy(date) {
+                    try {
+                        const validDate = date instanceof Date && !isNaN(date) ? date : new Date(date + 'T00:00:00Z');
+                        if (isNaN(validDate)) throw new Error("Invalid date format provided.");
+
+                         this.renderFullLiturgyView(validDate);
+
+                         if (this.elements.mainContent) this.elements.mainContent.classList.add('hidden');
+                         if (this.elements.fullLiturgyView) {
+                             this.elements.fullLiturgyView.classList.remove('hidden');
+                             this.elements.fullLiturgyView.scrollTop = 0;
+                         }
+                    } catch (error) {
+                         console.error("Error showing full liturgy:", error);
+                         // No usar alert()
+                    }
+                },
+
+
+                hideFullLiturgy() {
+                     if (this.elements.mainContent) this.elements.mainContent.classList.remove('hidden');
+                     if (this.elements.fullLiturgyView) this.elements.fullLiturgyView.classList.add('hidden');
+                },
+
+                showTheologyPopup(data) {
+                    if (!data || !this.elements.theologyPopup || !this.elements.theologyPopupOverlay || !this.elements.theologyPopupContent) return;
+                    let commentaryHtml = data.commentary ? `<hr class="my-3 border-gray-200"><h5 class="text-teal-700 font-bold mt-2">Comentario Teológico</h5><p class="text-sm text-gray-600">${data.commentary}</p>` : '';
+                    this.elements.theologyPopupContent.innerHTML = `
+                        <h5 class="text-teal-700 font-bold">${data.transliteration || ''}</h5>
+                        <p class="original-term text-gray-700 mb-2">${data.original || ''}</p>
+                        <p class="text-gray-800">${data.meaning || 'Significado no disponible.'}</p>
+                        ${commentaryHtml}
+                    `;
+                    this.elements.theologyPopupOverlay.style.display = 'block';
+                    this.elements.theologyPopup.style.display = 'block';
+                    document.body.style.overflow = 'hidden';
+                },
+
+                closeTheologyPopup() {
+                    if (this.elements.theologyPopup) this.elements.theologyPopup.style.display = 'none';
+                    if (this.elements.theologyPopupOverlay) this.elements.theologyPopupOverlay.style.display = 'none';
+                    document.body.style.overflow = '';
+                },
+
+                showFullTextView(data) {
+                     if (!data || !this.elements.fullTextView || !this.elements.fullTextTitle || !this.elements.fullTextContent || !this.elements.mainContent) return;
+                    this.elements.fullTextTitle.textContent = data.title || 'Contenido Adicional';
+                    this.elements.fullTextContent.innerHTML = data.content || '<p>Contenido no disponible.</p>';
+                    this.elements.mainContent.classList.add('hidden');
+                    this.elements.fullTextView.classList.remove('hidden');
+                    this.elements.fullTextView.scrollTop = 0;
+                },
+
+                hideFullTextView() {
+                    if (this.elements.mainContent) this.elements.mainContent.classList.remove('hidden');
+                    if (this.elements.fullTextView) this.elements.fullTextView.classList.add('hidden');
+                },
+
+                 renderLectionaryAccordion() {
+                    const container = this.elements.lectionaryAccordionContainer;
+                    if (!container) {
+                        console.error("Lectionary accordion container not found.");
+                        return;
+                    }
+                    container.innerHTML = '';
+
+                     if (Object.keys(App.state.lectionaryData).length === 0 || Object.keys(App.state.collectsData).length === 0) {
+                        container.innerHTML = `<p class="text-center text-gray-500 py-8">No hay datos del leccionario o colectas disponibles. Compruebe la conexión o la base de datos.</p>`;
+                        console.warn("Lectionary or collects data is empty.");
+                        container.dataset.rendered = String(App.state.currentYear);
+                        return;
+                    }
+
+                    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                    const currentYear = App.state.currentYear;
+
+                    months.forEach((monthName, monthIndex) => {
+                        const headerText = `${monthName} ${currentYear}`;
+
+                        const contentGenerator = (contentPanel) => {
+                             contentPanel.innerHTML = '';
+                            contentPanel.classList.add('space-y-6');
+                            const startDate = new Date(Date.UTC(currentYear, monthIndex, 1));
+                            const endDate = new Date(Date.UTC(currentYear, monthIndex + 1, 0));
+                            let hasContent = false;
+
+                             for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
+                                const data = App.services.getDailyOfficeData(new Date(d));
+                                if (data) {
+                                    hasContent = true;
+                                    const formattedDate = new Date(d).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+                                    const entryEl = document.createElement('div');
+                                    entryEl.className = 'lectionary-day-entry';
+                                    entryEl.classList.add(data.color.scheme === 'light' ? 'light-scheme' : 'dark-scheme');
+                                    entryEl.style.backgroundColor = data.color.hex;
+
+                                    const getReading = (type, part) => data.readings?.[type]?.[part] || '?';
+
+                                    entryEl.innerHTML = `
+                                        <h3>${data.title || 'Día'}</h3>
+                                        <p class="date-label">${formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}</p>
+                                        <p class="liturgical-color-label">Color litúrgico: ${data.color.name}</p>
+                                        <h4>Colecta</h4><p>${data.collect || 'No disponible.'}</p>
+                                        <h4>Lecciones</h4>
+                                        <div><h5>Oración Matutina</h5><ul><li>Salmos: ${getReading('m', 'p')}</li><li>1ª Lectura: ${getReading('m', 'r1')}</li><li>2ª Lectura: ${getReading('m', 'r2')}</li></ul></div>
+                                        <div><h5>Oración Vespertina</h5><ul><li>Salmos: ${getReading('e', 'p')}</li><li>1ª Lectura: ${getReading('e', 'r1')}</li><li>2ª Lectura: ${getReading('e', 'r2')}</li></ul></div>`;
+                                    contentPanel.appendChild(entryEl);
+                                }
+                            }
+                            if (!hasContent) {
+                                contentPanel.innerHTML = '<p class="text-sm text-gray-400 italic">No hay entradas del leccionario para este mes.</p>';
+                            }
+                        };
+
+                        const accordionItem = this._createAccordionItem(`lectionary-${monthName}-${currentYear}`, headerText, contentGenerator);
+                        container.appendChild(accordionItem);
+                    });
+                     container.dataset.rendered = String(App.state.currentYear);
+                },
+
+
+                renderStudyMaterials() {
+                     const container = this.elements.studyMaterialContainer;
+                    if (!container) {
+                        console.error("Study material container not found.");
+                        return;
+                    }
+                    container.innerHTML = '';
+
+                    if (!Array.isArray(App.state.studyMaterials) || App.state.studyMaterials.length === 0) {
+                        container.innerHTML = `<p class="text-center text-gray-500 py-8 md:col-span-2">No hay materiales de estudio disponibles. Compruebe la conexión o la base de datos.</p>`;
+                        console.warn("Study materials data is empty or not an array.");
+                         container.dataset.rendered = 'true';
+                        return;
+                    }
+
+                    App.state.studyMaterials.forEach((material, index) => {
+                         if (!material || !material.title || !material.description || !material.type) {
+                             console.warn("Skipping invalid study material item:", material);
+                             return;
+                         }
+
+                        const card = document.createElement('div');
+                        card.className = 'bg-stone-100 p-6 rounded-lg shadow hover:shadow-xl transition-shadow';
+
+                        let buttonHtml = '';
+                        const buttonText = material.buttonText || (material.type === 'link' ? 'Abrir Enlace' : 'Ver Más');
+
+                        if (material.type === 'link' && material.url) {
+                            let url = material.url;
+                            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                                url = 'https://' + url;
+                            }
+                            buttonHtml = `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-block bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors">
+                                ${buttonText}
+                            </a>`;
+                        } else if (material.type === 'internal' && material.internalId) {
+                            buttonHtml = `<button data-internal-id="${material.internalId}" class="study-internal-btn inline-block bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors">
+                                ${buttonText}
+                            </button>`;
+                        } else if (material.type === 'placeholder') {
+                             buttonHtml = `<button disabled class="inline-block bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed">
+                                ${material.buttonText || 'Próximamente'}
+                            </button>`;
+                        } else {
+                             buttonHtml = `<button disabled class="inline-block bg-gray-300 text-gray-600 font-bold py-2 px-4 rounded-lg cursor-not-allowed">
+                                No Disponible
+                            </button>`;
+                        }
+
+                        card.innerHTML = `
+                            <h3 class="font-bold text-xl mb-2 text-teal-700">${material.title}</h3>
+                            <p class="text-gray-600 mb-4">${material.description}</p>
+                            ${buttonHtml}
+                            <div id="study-content-${material.id || index}" class="hidden mt-4 pt-4 border-t border-gray-300"></div>
+                        `;
+                        container.appendChild(card);
+                    });
+                     container.dataset.rendered = 'true';
+                },
+
+                loadLogoFromStorage() {
+                    try {
+                        const savedLogo = localStorage.getItem('userLogo');
+                        if (savedLogo) {
+                             // *** FIX: Actualizar los 3 elementos del logo ***
+                             if (this.elements.logoImage) this.elements.logoImage.src = savedLogo;
+                             if (this.elements.logoImageMobile) this.elements.logoImageMobile.src = savedLogo;
+                             if (this.elements.logoImageHeader) this.elements.logoImageHeader.src = savedLogo;
+                        }
+                    } catch (error) {
+                        console.error("Error loading logo from localStorage:", error);
+                    }
+                },
+
+                openMobileMenu() {
+                    if (this.elements.mobileMenu) {
+                        this.elements.mobileMenu.classList.remove('menu-hidden');
+                        document.body.style.overflow = 'hidden';
+                    }
+                },
+
+                closeMobileMenu() {
+                     if (this.elements.mobileMenu) {
+                        this.elements.mobileMenu.classList.add('menu-hidden');
+                        document.body.style.overflow = '';
+                     }
+                }
+            },
+
+
+            // --- SERVICES ---
+            services: {
+                async loadAllDataFromFirestore() {
+                    if (!window.getFirestoreInstance || !window.getUserId) {
+                        console.error("Firestore access functions not available.");
+                         App.ui.showLoading(false);
+                        return;
+                    }
+                    const db = window.getFirestoreInstance();
+                    const userId = window.getUserId();
+
+                    if (!db || !userId) {
+                        console.error("Firestore not initialized or user not authenticated for data load.");
+                        return;
+                    }
+
+                    App.ui.showLoading(true);
+                    console.log("Starting data load from Firestore...");
+
+                    window.detachAllListeners();
+
+                    const appId = window.getAppId();
+                    const basePath = `/artifacts/${appId}/public/data`;
+                    console.log("Using Firestore base path:", basePath);
+
+
+                    const { collection, onSnapshot: onSnapshot_ } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+
+
+                    const listenersPromises = [];
+
+                    const collectionsToLoad = [
+                        { path: `${basePath}/terms`, stateKey: 'termsData', isMap: true },
+                        { path: `${basePath}/lectionary`, stateKey: 'lectionaryData', isMap: true },
+                        { path: `${basePath}/collects`, stateKey: 'collectsData', isMap: true },
+                        { path: `${basePath}/studyMaterials`, stateKey: 'studyMaterials', isMap: false }
+                    ];
+
+                    collectionsToLoad.forEach(colInfo => {
+                        try {
+                             const collRef = collection(db, colInfo.path);
+                             listenersPromises.push(
+                                 this.attachFirestoreListener(collRef, colInfo.stateKey, colInfo.isMap)
+                             );
+                        } catch (error) {
+                             console.error(`Error creating collection reference for ${colInfo.path}:`, error);
+                             listenersPromises.push(Promise.reject(error));
+                        }
+                    });
+
+
+                    try {
+                        listenersPromises.push(this.loadLiturgyYearData(App.state.currentYear));
+                    } catch (error) {
+                         console.error(`Error initiating liturgy load for year ${App.state.currentYear}:`, error);
+                         listenersPromises.push(Promise.reject(error));
+                    }
+
+
+                    try {
+                        await Promise.all(listenersPromises);
+                        console.log("Initial data loaded and listeners attached successfully.");
+                         App.ui.switchView(App.state.currentView);
+
+                    } catch (error) {
+                        console.error("Error during initial data load from Firestore:", error);
+                         if (App.ui.elements.mainContent) {
+                            App.ui.elements.mainContent.innerHTML = `<div class="p-4 m-4 bg-red-100 border border-red-400 text-red-700 rounded relative" role="alert"><strong class="font-bold">Error de Carga de Datos!</strong><span class="block sm:inline"> No se pudieron cargar todos los datos necesarios (${error.message || 'Error desconocido'}). Por favor, recarga la página.</span></div>`;
+                            App.ui.elements.mainContent.classList.remove('opacity-0');
+                         }
+                    } finally {
+                        // *** FIX: Lógica para ocultar splash screen ***
+                        App.ui.showLoading(false);
+                        const splash = App.ui.elements.splashScreen || document.getElementById('splash-screen');
+                        const main = App.ui.elements.mainContent || document.getElementById('main-content');
+                        if (splash) {
+                             splash.classList.add('fade-out');
+                             setTimeout(() => { splash.style.display = 'none'; }, 1500); // Ocultar después del fade
+                        }
+                        if (main && !main.querySelector('.bg-red-100')) { // No mostrar si hay error
+                             main.classList.remove('opacity-0');
+                        }
+                    }
+                },
+
+                async loadLiturgyYearData(year) {
+                    const yearNum = parseInt(year, 10);
+                    if (isNaN(yearNum)) {
+                         console.error("Invalid year provided to loadLiturgyYearData:", year);
+                         return Promise.reject(new Error("Invalid year"));
+                    }
+
+                     const { collection, onSnapshot: onSnapshot_ } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+
+                     return new Promise((resolve, reject) => {
+                         const db = window.getFirestoreInstance();
+                         const userId = window.getUserId();
+                         if (!db || !userId) {
+                             console.error("Firestore not ready for liturgy load (loadLiturgyYearData).");
+                            return reject(new Error("Firestore not ready"));
+                        }
+
+                        const appId = window.getAppId();
+                        const liturgyCollectionPath = `/artifacts/${appId}/public/data/liturgy/${yearNum}/days`;
+                        console.log(`Setting up listener for liturgy data: ${liturgyCollectionPath}`);
+
+                        try {
+                            const liturgyCollectionRef = collection(db, liturgyCollectionPath);
+
+                            const unsubscribe = onSnapshot_(liturgyCollectionRef, (snapshot) => {
+                                const yearData = {};
+                                if (snapshot.empty) {
+                                    console.warn(`No liturgy documents found for year ${yearNum} at ${liturgyCollectionPath}. Check Firestore data.`);
+                                } else {
+                                    snapshot.forEach(doc => {
+                                        if (/^\d{4}-\d{2}-\d{2}$/.test(doc.id)) {
+                                             yearData[doc.id] = doc.data();
+                                        } else {
+                                            console.warn(`Invalid document ID format skipped in liturgy data: ${doc.id}`);
+                                        }
+                                    });
+                                }
+                                App.state.liturgyDataCache[yearNum] = yearData;
+                                console.log(`Liturgy data snapshot received for year ${yearNum}:`, Object.keys(yearData).length, "valid entries");
+
+                                if (App.state.currentView === 'liturgy' && App.state.currentYear === yearNum && App.state.isAuthReady) {
+                                    console.log("Re-rendering liturgy cards after data update for year", yearNum);
+                                    App.ui.renderLiturgicalCards();
+                                }
+                                resolve();
+
+                            }, (error) => {
+                                console.error(`Error fetching liturgy data snapshot for year ${yearNum}:`, error);
+                                App.state.liturgyDataCache[yearNum] = {};
+                                reject(error);
+                                 if (App.state.currentView === 'liturgy' && App.state.currentYear === yearNum && App.state.isAuthReady) {
+                                    App.ui.renderLiturgicalCards();
+                                }
+                            });
+                            // *** FIX: Usar la función global para guardar el listener ***
+                            window.addFirestoreListenerHandle(unsubscribe);
+                        } catch (error) {
+                             console.error(`Error creating liturgy collection reference for year ${yearNum}:`, error);
+                             reject(error);
+                        }
+                    });
+                },
+
+
+                async attachFirestoreListener(collectionRef, stateKey, isMap = false) {
+                     const { onSnapshot: onSnapshot_ } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+
+                     return new Promise((resolve, reject) => {
+                         console.log(`Attaching listener for ${stateKey}`);
+                        let isFirstSnapshot = true;
+
+                        const unsubscribe = onSnapshot_(collectionRef, (snapshot) => {
+                            console.log(`Snapshot received for ${stateKey} (isFirst: ${isFirstSnapshot})`);
+                            let changed = false;
+
+                            try {
+                                if (isMap) {
+                                    const newMapData = {};
+                                    snapshot.forEach(doc => {
+                                        newMapData[doc.id] = doc.data();
+                                    });
+                                    if (JSON.stringify(App.state[stateKey] || {}) !== JSON.stringify(newMapData)) {
+                                        App.state[stateKey] = newMapData;
+                                        changed = true;
+                                    }
+                                     console.log(`Processed map data for ${stateKey}:`, Object.keys(newMapData).length, "entries. Changed:", changed);
+
+                                } else {
+                                    const newListData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                                    if (stateKey === 'studyMaterials') {
+                                        newListData.sort((a, b) => (a.order || 0) - (b.order || 0));
+                                    }
+                                     if (JSON.stringify(App.state[stateKey] || []) !== JSON.stringify(newListData)) {
+                                        App.state[stateKey] = newListData;
+                                        changed = true;
+                                    }
+                                    console.log(`Processed list data for ${stateKey}:`, newListData.length, "items. Changed:", changed);
+                                }
+
+                                if (changed && !App.state.isLoading && App.state.isAuthReady) {
+                                    console.log(`Data changed for ${stateKey}, updating relevant UI if needed...`);
+                                    if (stateKey === 'studyMaterials' && App.state.currentView === 'study') {
+                                        App.ui.renderStudyMaterials();
+                                    } else if ((stateKey === 'lectionaryData' || stateKey === 'collectsData') && App.state.currentView === 'lectionary') {
+                                        App.ui.renderLectionaryAccordion();
+                                    }
+                                }
+
+                                if (isFirstSnapshot) {
+                                    isFirstSnapshot = false;
+                                    resolve();
+                                }
+
+                            } catch (processingError) {
+                                 console.error(`Error processing snapshot for ${stateKey}:`, processingError);
+                                 if (isFirstSnapshot) {
+                                      isFirstSnapshot = false; // Prevenir re-rechazo
+                                      reject(processingError);
+                                 }
+                            }
+
+                        }, (error) => {
+                            console.error(`Error in onSnapshot listener for ${stateKey}:`, error);
+                            App.state[stateKey] = isMap ? {} : [];
+                            if (isFirstSnapshot) {
+                                isFirstSnapshot = false; // Prevenir re-rechazo
+                                reject(error);
+                            }
+                        });
+                        // *** FIX: Usar la función global para guardar el listener ***
+                        window.addFirestoreListenerHandle(unsubscribe);
+                    });
+                },
+
+
+                _createRefLink(key, num) {
+                    const terms = App.state.termsData || {};
+                    const termData = terms[key];
+
+                    if (!termData) {
+                        console.warn(`Theological term key not found: ${key}`);
+                        return `<sup>[?]</sup>`;
+                    }
+                    try {
+                        const cleanData = {
+                            original: termData.original || '',
+                            transliteration: termData.transliteration || '',
+                            meaning: termData.meaning || 'Significado no disponible.',
+                            commentary: termData.commentary || null
+                        };
+                        const termJson = JSON.stringify(cleanData).replace(/'/g, "&#39;");
+                         return `<span class="ref-link" data-term='${termJson}'><sup>${num}</sup></span>`;
+                    } catch (e) {
+                        console.error(`Error processing theological term ${key}:`, e);
+                        return `<sup>[!]</sup>`;
+                    }
+                },
+
+                 toYYYYMMDD(d) {
+                    if (!(d instanceof Date) || isNaN(d)) {
+                        console.warn("Invalid date passed to toYYYYMMDD:", d);
+                        return null;
+                    }
+                    const year = d.getUTCFullYear();
+                    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(d.getUTCDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                },
+
+                getLiturgyForDate(date) {
+                     if (!(date instanceof Date) || isNaN(date)) return null;
+
+                    const year = date.getUTCFullYear();
+                    const dateString = this.toYYYYMMDD(date);
+                    if (!dateString) return null;
+
+                    const yearCache = App.state.liturgyDataCache[year];
+                    let specificDayData = null;
+                    if (yearCache && yearCache[dateString]) {
+                         specificDayData = yearCache[dateString];
+                    }
+
+                    const baseLiturgy = this.calculateBaseLiturgyInfo(date);
+
+                    if (!baseLiturgy) {
+                         console.error("Failed to calculate base liturgy info for:", dateString);
+                         return { title: 'Error', cycle: '', prayers: {}, readings: {}, seasonColor: '#ff0000'};
+                    }
+
+                    if (specificDayData) {
+                         return {
+                             ...baseLiturgy,
+                             ...specificDayData,
+                            prayers: { ...(baseLiturgy.prayers || {}), ...(specificDayData.prayers || {}) },
+                            readings: { ...(baseLiturgy.readings || {}), ...(specificDayData.readings || {}) }
+                         };
+                    } else {
+                         return baseLiturgy;
+                    }
+                },
+
+                 calculateBaseLiturgyInfo(date) {
+                      if (!(date instanceof Date) || isNaN(date)) return null;
+
+                     const year = date.getUTCFullYear();
+                      const calculateEaster = (year) => {
+                        const a = year % 19; const b = Math.floor(year / 100); const c = year % 100;
+                        const d = Math.floor(b / 4); const e = b % 4; const f = Math.floor((b + 8) / 25);
+                        const g = Math.floor((b - f + 1) / 3); const h = (19 * a + b - d - g + 15) % 30;
+                        const i = Math.floor(c / 4); const k = c % 4; const l = (32 + 2 * e + 2 * i - h - k) % 7;
+                        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+                        const month = Math.floor((h + l - 7 * m + 114) / 31);
+                        const day = ((h + l - 7 * m + 114) % 31) + 1;
+                        return new Date(Date.UTC(year, month - 1, day));
+                      };
+                      const addDaysUTC = (d, days) => { const result = new Date(d); result.setUTCDate(d.getUTCDate() + days); return result; };
+                      const findAdvent1UTC = (year) => {
+                        const christmas = new Date(Date.UTC(year, 11, 25)); const dayOfWeek = christmas.getUTCDay();
+                        const daysToSubtract = 21 + (dayOfWeek === 0 ? 0 : dayOfWeek); // Ajuste si Navidad es Domingo
+                        return addDaysUTC(christmas, -daysToSubtract);
+                      };
+                      
+                      const easter = calculateEaster(year);
+                      const ashWednesday = addDaysUTC(easter, -46);
+                      const palmSunday = addDaysUTC(easter, -7);
+                      const goodFriday = addDaysUTC(easter, -2);
+                      const ascension = addDaysUTC(easter, 39);
+                      const pentecost = addDaysUTC(easter, 49);
+                      const trinitySunday = addDaysUTC(pentecost, 7);
+                      const firstSundayOfAdventCurrentYear = findAdvent1UTC(year);
+                      const firstSundayOfAdventPrevYear = findAdvent1UTC(year - 1);
+                      const christTheKing = addDaysUTC(firstSundayOfAdventCurrentYear, -7);
+                      const epiphany = new Date(Date.UTC(year, 0, 6));
+                      let epiphanySunday = new Date(Date.UTC(year, 0, 2)); // Empezar en Ene 2
+                      while(epiphanySunday.getUTCDay() !== 0) { epiphanySunday.setUTCDate(epiphanySunday.getUTCDate() + 1); } // Encontrar primer domingo
+                      if(epiphanySunday.getUTCDate() > 8) { // Si el primer domingo es después de Ene 8, Epifanía es Ene 6
+                         epiphanySunday = epiphany; // O manejar como día fijo
+                      }
+                      const baptismOfTheLord = addDaysUTC(epiphanySunday, 7); 
+
+                     const countSundaysUTC = (start, end) => {
+                        let count = 0; let current = new Date(start);
+                         while (current <= end) { if (current.getUTCDay() === 0) count++; current.setUTCDate(current.getUTCDate() + 1); }
+                         return count;
+                     };
+
+                     let season = 'Tiempo Ordinario'; let seasonColor = '#16a34a'; let cycle = 'A';
+                      const liturgicalYearStartYear = (date >= firstSundayOfAdventCurrentYear) ? year : year - 1;
+                      const cycleLookup = ['A', 'B', 'C'];
+                      const baseYearForCycleA = 2022; // Asumiendo Adviento 2022 = Año A
+                      cycle = `Ciclo ${cycleLookup[Math.abs(liturgicalYearStartYear - baseYearForCycleA) % 3]}`;
+
+                     if (date >= firstSundayOfAdventCurrentYear) { season = 'Adviento'; seasonColor = '#6d28d9'; }
+                     else if (date >= trinitySunday) { season = 'Tiempo después de Pentecostés'; seasonColor = '#16a34a'; }
+                     else if (date >= pentecost) { season = 'Pentecostés'; seasonColor = '#dc2626'; }
+                     else if (date >= easter) { season = 'Pascua'; seasonColor = '#f1f5f9'; }
+                     else if (date >= ashWednesday) { season = 'Cuaresma'; seasonColor = '#9333ea'; }
+                     else if (date >= baptismOfTheLord) { season = 'Tiempo después de la Epifanía'; seasonColor = '#16a34a'; }
+                     else if (date.getTime() === epiphanySunday.getTime() || (date.getTime() >= epiphany.getTime() && date < baptismOfTheLord)) { season = 'Epifanía'; seasonColor = '#f1f5f9'; }
+                     else if (date >= new Date(Date.UTC(year - 1, 11, 25))) { season = 'Navidad'; seasonColor = '#f1f5f9'; }
+                     else if (date >= firstSundayOfAdventPrevYear) { season = 'Adviento'; seasonColor = '#6d28d9'; }
+                     
+                     if (date >= christTheKing && date < firstSundayOfAdventCurrentYear) { season = 'Última Semana después de Pentecostés'; }
+
+                     let title = 'Feria';
+                      const dateTimestamp = date.getTime();
+                      const ordinals = ["Primer", "Segundo", "Tercer", "Cuarto", "Quinto", "Sexto", "Séptimo", "Octavo", "Noveno", "Décimo", "Undécimo", "Duodécimo", "Decimotercer", "Decimocuarto", "Decimoquinto", "Decimosexto", "Decimoséptimo", "Decimoctavo", "Decimonoveno", "Vigésimo", "Vigesimoprimer", "Vigesimosegundo", "Vigesimotercer", "Vigesimocuarto", "Vigesimoquinto", "Vigesimosexto", "Vigesimoséptimo", "Vigesimoctavo", "Vigesimonoveno", "Trigésimo", "Trigésimo Primero", "Trigésimo Segundo", "Trigésimo Tercero", "Trigésimo Cuarto"];
+
+                     if (date.getUTCDay() === 0) { // Sunday
+                         if (dateTimestamp >= firstSundayOfAdventCurrentYear.getTime()) title = `El ${ordinals[countSundaysUTC(firstSundayOfAdventCurrentYear, date) - 1] || '?'} Domingo de Adviento`;
+                         else if (dateTimestamp === christTheKing.getTime()) title = 'El Último Domingo después de Pentecostés: Cristo Rey';
+                         else if (dateTimestamp === trinitySunday.getTime()) title = "El Domingo de la Santísima Trinidad";
+                         else if (dateTimestamp > trinitySunday.getTime()) { const index = countSundaysUTC(trinitySunday, date); title = `El ${ordinals[index] || (index + 1) + 'º'} Domingo después de Pentecostés`; }
+                         else if (dateTimestamp === pentecost.getTime()) title = 'El Día de Pentecostés';
+                         else if (dateTimestamp === easter.getTime()) title = 'Domingo de Pascua';
+                         else if (dateTimestamp > easter.getTime()) title = `El ${ordinals[countSundaysUTC(easter, date) - 1] || '?'} Domingo de Pascua`;
+                         else if (dateTimestamp === palmSunday.getTime()) title = 'Domingo de Ramos';
+                         else if (dateTimestamp > ashWednesday.getTime()) { const index = countSundaysUTC(addDaysUTC(ashWednesday, -ashWednesday.getUTCDay()), date); title = `El ${ordinals[index - 1] || '?'} Domingo de Cuaresma`; }
+                         else if (dateTimestamp === baptismOfTheLord.getTime()) title = 'El Bautismo de Nuestro Señor Jesucristo';
+                         else if (dateTimestamp > epiphanySunday.getTime()) title = `El ${ordinals[countSundaysUTC(epiphanySunday, date) - 1] || '?'} Domingo después de la Epifanía`;
+                         else if (dateTimestamp === epiphanySunday.getTime()) title = 'La Epifanía de Nuestro Señor Jesucristo';
+                         else if (dateTimestamp > new Date(Date.UTC(year - 1, 11, 25)).getTime()) {
+                              const christmasPrev = new Date(Date.UTC(year - 1, 11, 25));
+                              const sundaysAfter = countSundaysUTC(christmasPrev, date);
+                              if (sundaysAfter > 0) title = `El ${ordinals[sundaysAfter - 1] || '?'} Domingo después de Navidad`;
+                              else title = 'Feria entre Navidad y Epifanía';
+                         }
+                         else if (dateTimestamp >= firstSundayOfAdventPrevYear.getTime()) title = `El ${ordinals[countSundaysUTC(firstSundayOfAdventPrevYear, date) - 1] || '?'} Domingo de Adviento`;
+                     }
+
+                      const dateStr = this.toYYYYMMDD(date);
+                      if (dateStr === this.toYYYYMMDD(goodFriday)) { seasonColor = '#dc2626'; title = 'Viernes Santo'; season = 'Triduo Pascual'; }
+                      if (dateStr === this.toYYYYMMDD(addDaysUTC(easter, -1))) { title = 'Sábado Santo'; seasonColor = '#f1f5f9'; season = 'Triduo Pascual'; }
+                      if (dateStr === this.toYYYYMMDD(addDaysUTC(easter, -3))) { title = 'Jueves Santo'; seasonColor = '#f1f5f9'; season = 'Triduo Pascual'; }
+                      if (date.getUTCDay() === 0 && season === 'Adviento' && countSundaysUTC(firstSundayOfAdventCurrentYear, date) === 3) seasonColor = '#fda4af'; // Gaudete
+                      if (date.getUTCDay() === 0 && season === 'Cuaresma' && countSundaysUTC(ashWednesday, date) === 4) seasonColor = '#fda4af'; // Laetare
+
+
+                     const basePrayers = {};
+                     const baseReadings = { firstReading: null, psalm: null, secondReading: null, alleluiaVerse: null, gospel: null };
+
+                     return {
+                         title,
+                         cycle,
+                         omitGloria: (season === 'Adviento' || season === 'Cuaresma'),
+                         omitAlleluia: (season === 'Cuaresma' || season === 'Triduo Pascual'),
+                         seasonColor,
+                         season,
+                         prayers: basePrayers,
+                         readings: baseReadings
+                     };
+                 },
+
+                getDailyOfficeData(date) {
+                    if (!(date instanceof Date) || isNaN(date)) return null;
+
+                    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(date.getUTCDate()).padStart(2, '0');
+                    const dateKey = `${month}-${day}`;
+                    const dayData = App.state.lectionaryData ? App.state.lectionaryData[dateKey] : null;
+
+                    if (!dayData) {
+                        return null;
+                    }
+
+                    let colorName = "Verde"; let colorHex = "#16a34a"; let colorScheme = 'dark';
+                    const baseInfo = this.calculateBaseLiturgyInfo(date) || {};
+
+                    let determinedColor = false;
+                    switch(dayData.c) {
+                        case 'Rojo': colorName = "Rojo"; colorHex = "#dc2626"; colorScheme = 'dark'; determinedColor = true; break;
+                        case 'Blanco': colorName = "Blanco"; colorHex = "#f1f5f9"; colorScheme = 'light'; determinedColor = true; break;
+                        case 'Violeta': colorName = "Violeta"; colorHex = (baseInfo.season === 'Adviento') ? "#6d28d9" : "#9333ea"; colorScheme = 'dark'; determinedColor = true; break;
+                        case 'Rosa': colorName = "Rosa"; colorHex = "#fda4af"; colorScheme = 'light'; determinedColor = true; break;
+                        case 'Verde': colorName = "Verde"; colorHex = "#16a34a"; colorScheme = 'dark'; determinedColor = true; break;
+                    }
+
+                    if (!determinedColor && baseInfo.seasonColor) {
+                        colorHex = baseInfo.seasonColor;
+                        if (colorHex === '#6d28d9' || colorHex === '#9333ea') { colorName = "Violeta"; colorScheme = 'dark';}
+                        else if (colorHex === '#f1f5f9' || colorHex === '#f59e0b' || colorHex === '#ca8a04') { colorName = "Blanco"; colorScheme = 'light';}
+                        else if (colorHex === '#dc2626') { colorName = "Rojo"; colorScheme = 'dark'; }
+                        else if (colorHex === '#fda4af') { colorName = "Rosa"; colorScheme = 'light'; }
+                        else { colorName = "Verde"; colorScheme = 'dark'; }
+                    }
+
+                    let collectKey = dayData.collectKey;
+                    if (!collectKey && dayData.t) {
+                         const cleanTitle = dayData.t.replace(/[^a-zA-Z0-9]/g, '');
+                         if (!/Feria|Lunes|Martes|Mi[ée]rcoles|Jueves|Viernes|S[áa]bado/i.test(dayData.t)) {
+                             collectKey = cleanTitle;
+                         }
+                    }
+                    if (!collectKey && baseInfo.title && baseInfo.title !== 'Feria') {
+                        collectKey = baseInfo.title.replace(/[^a-zA-Z0-9]/g, '');
+                    }
+                    if (!collectKey) {
+                        // Fallback simple, necesita mejora para Domingos específicos
+                        collectKey = 'Pentecostés2'; // Colecta genérica de tiempo ordinario
+                    }
+
+                    const collects = App.state.collectsData || {};
+                    const collectText = collects[collectKey]?.text || collects["Pentecostés2"]?.text || "Colecta no disponible.";
+
+                    const readings = dayData.r || {};
+                    const morning = readings.m || {};
+                    const evening = readings.e || {};
+
+                    return {
+                        title: dayData.t || baseInfo.title || 'Día',
+                        collect: collectText,
+                        color: { name: colorName, hex: colorHex, scheme: colorScheme },
+                        readings: {
+                            m: { p: morning.p || '?', r1: morning.r1 || '?', r2: morning.r2 || '?' },
+                            e: { p: evening.p || '?', r1: evening.r1 || '?', r2: evening.r2 || '?' }
+                        }
+                    };
+                },
+
+
+                getLiturgyTemplates(liturgy, ref) {
+                    return {
+                            initialGreeting: `<p class="liturgy-text"><strong>Sacerdote:</strong> Bendito sea Dios: Padre, Hijo y Espíritu Santo.<br><strong>Pueblo:</strong> Y bendito sea su reino, ahora y por siempre. Amén.</p>`,
+                            collectForPurity: `<p class="liturgy-text"><strong>Sacerdote y Pueblo:</strong><br>Dios todopoderoso, para quien todos los corazones están abiertos, todos los deseos son conocidos, y de quien ningún secreto se esconde: Purifica los pensamientos de nuestros corazones por la inspiración de tu Espíritu Santo, para que te amemos perfectamente, y dignamente magnifiquemos tu santo Nombre; por Cristo nuestro Señor. Amén.</p>`,
+                            penitentialAct: `<h3>Rito Penitencial</h3><p class="liturgy-text rubric">(La congregación se arrodilla o permanece de pie)</p><p class="liturgy-text"><strong>Sacerdote:</strong> Confesemos nuestros pecados contra Dios y nuestro prójimo.<br><em class="rubric">Silencio puede ser guardado.</em><br><strong>Sacerdote y Pueblo:</strong><br>Dios misericordiosísimo, confesamos que hemos pecado contra ti en pensamiento, palabra y obra, por lo que hemos hecho y por lo que hemos dejado de hacer. No te hemos amado con todo nuestro corazón; no hemos amado a nuestro prójimo como a nosotros mismos. Lo sentimos de veras y nos arrepentimos humildemente. Por amor de tu Hijo Jesucristo, ten misericordia de nosotros y perdónanos; para que nos deleitemos en tu voluntad y andemos en tus caminos, para la gloria de tu Nombre. Amén.</p><p class="liturgy-text"><strong>Sacerdote:</strong><br>Dios todopoderoso tenga misericordia de ustedes, perdone todos sus pecados por medio de nuestro Señor Jesucristo, los fortalezca en toda bondad, y por el poder del Espíritu Santo los guarde en la vida eterna. Amén.</p><p class="liturgy-text"><strong>Sacerdote o Cantor:</strong> Señor, ten piedad.${ref('kyrie', 1)}<br><strong>Pueblo:</strong> Señor, ten piedad.<br><strong>Sacerdote o Cantor:</strong> Cristo, ten piedad.<br><strong>Pueblo:</strong> Cristo, ten piedad.<br><strong>Sacerdote o Cantor:</strong> Señor, ten piedad.<br><strong>Pueblo:</strong> Señor, ten piedad.</p>`,
+                            gloria: `<h3>Gloria in Excelsis</h3><p class="liturgy-text"><strong>Sacerdote y Pueblo:</strong><br>Gloria a Dios en las alturas, y en la tierra paz, buena voluntad para con los hombres. Te alabamos, te bendecimos, te adoramos, te glorificamos, te damos gracias por tu gran gloria, oh Señor Dios, Rey celestial, Dios Padre todopoderoso. Oh Señor, el único Hijo engendrado, Jesucristo; Oh Señor Dios, Cordero de Dios, Hijo del Padre, que quitas los pecados del mundo, ten misericordia de nosotros. Tú que quitas los pecados del mundo, recibe nuestra oración. Tú que estás sentado a la diestra de Dios Padre, ten misericordia de nosotros. Porque solo tú eres santo; solo tú eres el Señor; solo tú, oh Cristo, con el Espíritu Santo, eres altísimo en la gloria de Dios Padre. Amén.</p>`,
+                            alleluia: (verse = '') => `<h3>Aleluya</h3><p class="liturgy-text"><strong>Sacerdote y Pueblo:</strong><br>Aleluya, aleluya. ${verse} Aleluya, aleluya.</p>`,
+                            gospelAcclamation: (verse = '') => `<h3>Aclamación antes del Evangelio</h3><p class="liturgy-text"><strong>Sacerdote y Pueblo:</strong><br>Alabanza y honor a ti, Señor Jesucristo. ${verse} Alabanza y honor a ti, Señor Jesucristo.</p>`,
+                            gospel: (gospelData = {}) => `<h3>Evangelio: ${gospelData.ref || 'Evangelio'}</h3><p class="liturgy-text rubric">Antes del anuncio, el Sacerdote reza en silencio:</p><p class="liturgy-text rubric">Purifica mi corazón y mis labios, Dios todopoderoso, para que anuncie dignamente tu santo Evangelio.</p><p class="liturgy-text"><strong>Sacerdote:</strong> El Señor sea con ustedes.<br><strong>Pueblo:</strong> Y con tu espíritu.<br><strong>Sacerdote:</strong> El Santo Evangelio de nuestro Señor Jesucristo según ${gospelData.ref?.split(' ')[0] || 'N'}.<br><strong>Pueblo:</strong> Gloria a ti, Señor Cristo.<br><br>${gospelData.text || 'Texto no disponible.'}<br><br><strong>Sacerdote:</strong> El Evangelio del Señor.<br><strong>Pueblo:</strong> Alabanza a ti, Señor Cristo.</p>`,
+                            credo: `<h3>El Credo Niceno</h3><p class="liturgy-text rubric">(Todos de pie)</p><p class="liturgy-text"><strong>Sacerdote y Pueblo:</strong><br>Creemos en un solo Dios, Padre todopoderoso, creador del cielo y de la tierra, de todo lo visible y lo invisible. Creemos en un solo Señor, Jesucristo, Hijo único de Dios, nacido del Padre antes de todos los siglos: Dios de Dios, Luz de Luz, Dios verdadero de Dios verdadero, engendrado, no creado, de la misma naturaleza del Padre, por quien todo fue hecho; que por nosotros, los hombres, y por nuestra salvación bajó del cielo, y por obra del Espíritu Santo se encarnó de la Virgen María, <em class="rubric">(se inclina la cabeza)</em> y se hizo hombre; y por nuestra causa fue crucificado en tiempos de Poncio Pilato; padeció y fue sepultado, y resucitó al tercer día, según las Escrituras, y subió al cielo, y está sentado a la derecha del Padre; y de nuevo vendrá con gloria para juzgar a vivos y muertos, y su reino no tendrá fin. Creemos en el Espíritu Santo, Señor y dador de vida, que procede del Padre y del Hijo, que con el Padre y del Hijo recibe una misma adoración y gloria, y que habló por los profetas. Creemos en la Iglesia, que es una, santa, católica y apostólica. Confesamos que hay un solo bautismo para el perdón de los pecados. Esperamos la resurrección de los muertos, y la vida del mundo futuro. Amén.</p>`,
+                            prayerOfTheFaithful: `<h3>Oración de los Fieles</h3><p class="liturgy-text rubric">(La congregación se arrodilla o permanece de pie)</p><p class="liturgy-text"><strong>Diácono o Sacerdote:</strong> Con fe y confianza, presentemos nuestras oraciones al Padre, diciendo: <strong>Señor, escucha nuestra oración.</strong></p><p class="liturgy-text rubric">Por la santa Iglesia de Dios, por nuestro Arzobispo N., y por todo el clero y el pueblo, oremos al Señor.</p><p class="liturgy-text"><strong>Pueblo:</strong> Señor, escucha nuestra oración.</p><p class="liturgy-text rubric">Por los líderes de las naciones y por todos los que tienen autoridad, para que gobiernen con justicia y sabiduría, oremos al Señor.</p><p class="liturgy-text"><strong>Pueblo:</strong> Señor, escucha nuestra oración.</p><p class="liturgy-text rubric">Por los que sufren y los oprimidos, por los enfermos y los moribundos, y por todos los que necesitan nuestras oraciones, oremos al Señor.</p><p class="liturgy-text"><strong>Pueblo:</strong> Señor, escucha nuestra oración.</p><p class="liturgy-text rubric">Por los que han muerto en la fe de Cristo, para que descansen en paz y se levanten en gloria, oremos al Señor.</p><p class="liturgy-text"><strong>Pueblo:</strong> Señor, escucha nuestra oración.</p><p class="liturgy-text rubric">El Celebrante añade una oración conclusiva.</p><p class="liturgy-text"><strong>Sacerdote:</strong> Dios todopoderoso, que nos has dado la gracia en este tiempo para hacer con un solo acuerdo nuestra oración común a ti; y prometes que cuando dos o tres se congregan en tu Nombre, les concederás sus peticiones: Cumple ahora, oh Señor, los deseos y peticiones de tus siervos, como sea más conveniente para ellos; concediéndonos en este mundo el conocimiento de tu verdad, y en el mundo venidero la vida eterna. Amén.</p>`,
+                            offertory: (offeringPrayer = 'Oración no disponible.') => `<h3>Ofertorio</h3><p class="liturgy-text rubric">(Se presenta el pan y el vino. Durante la preparación de los dones, el Sacerdote reza en silencio:)</p><p class="liturgy-text rubric">Bendito seas, Señor, Dios del universo, por este pan, fruto de la tierra y del trabajo del hombre, que recibimos de tu generosidad y ahora te presentamos; él será para nosotros pan de vida.</p><p class="liturgy-text rubric">(Mezcla agua y vino, diciendo en silencio:)</p><p class="liturgy-text rubric">Por el misterio de esta agua y este vino, seamos partícipes de la divinidad de Aquel que se dignó a compartir nuestra humanidad.</p><p class="liturgy-text rubric">Bendito seas, Señor, Dios del universo, por este vino, fruto de la vid y del trabajo del hombre, que recibimos de tu generosidad y ahora te presentamos; él será para nosotros bebida de salvación.</p><p class="liturgy-text rubric">(Inclinándose, el Sacerdote reza en silencio:)</p><p class="liturgy-text rubric">Acepta, Señor, nuestro corazón contrito y nuestro espíritu humilde; que este sea hoy nuestro sacrificio y que sea agradable a ti, Señor, mi Dios.</p><p class="liturgy-text rubric">(Luego, el Sacerdote se lava las manos, diciendo en silencio:)</p><p class="liturgy-text rubric">Lava del todo mi delito, Señor, y limpia mi pecado.</p><p class="liturgy-text rubric">(La congregación se pone de pie)</p><h3>Oración sobre las Ofrendas</h3><p class="liturgy-text">${offeringPrayer}</p>`,
+                            eucharisticPrayerII: (preface = 'En verdad es justo y necesario...') => `<h3>La Gran Acción de Gracias (Plegaria Eucarística II) ${ref('eucaristia', 2)}</h3><p class="liturgy-text"><strong>Sacerdote:</strong> El Señor sea con ustedes.<br><strong>Pueblo:</strong> Y con tu espíritu.<br><strong>Sacerdote:</strong> Levanten sus corazones.<br><strong>Pueblo:</strong> Los levantamos al Señor.<br><strong>Sacerdote:</strong> Demos gracias al Señor nuestro Dios.<br><strong>Pueblo:</strong> Es digno y justo hacerlo.<br><br><strong>Sacerdote:</strong> ${preface}<br><br><strong>Sacerdote y Pueblo:</strong> Santo, Santo, Santo, Señor Dios de los ejércitos: Llenos están el cielo y la tierra de tu gloria. Gloria a ti, oh Señor altísimo. Bendito el que viene en el nombre del Señor. Hosanna en las alturas.<br><br><p class="liturgy-text rubric">(La congregación se arrodilla o permanece de pie)</p><strong>Sacerdote:</strong> Te damos gracias, oh Padre, por la gloria de nuestra creación, por la miseria de nuestra caída, y por tu amor que nos ha redimido. Y ahora te ofrecemos estos dones. Santifícalos con tu Espíritu Santo, para que sean para tu pueblo el Cuerpo y la Sangre de tu Hijo, el pan santo de la vida eterna y el cáliz de la salvación eterna.<br><br><span class="rubric">El Sacerdote extiende sus manos sobre los dones.</span><br><br>Porque en la noche en que fue entregado, nuestro Señor Jesucristo tomó pan; y habiendo dado gracias, lo partió, y lo dio a sus discípulos, diciendo: «Tomen, coman: esto es mi Cuerpo, que es entregado por ustedes. Hagan esto en memoria de mí».<br><br><span class="rubric">El Sacerdote muestra el Pan consagrado al pueblo.</span><br><br>De la misma manera, después de cenar, tomó la copa; y habiendo dado gracias, la dio a ellos, diciendo: «Beban de esto, todos ustedes; porque esta es mi Sangre del Nuevo Pacto, que es derramada por ustedes y por muchos para el perdón de los pecados. Siempre que la beban, hagan esto en memoria de mí».<br><br><span class="rubric">El Sacerdote muestra el Cáliz al pueblo.</span><br><br>Por lo tanto, te proclamamos el misterio de la fe:<br><strong>Sacerdote y Pueblo:</strong> Cristo ha muerto. Cristo ha resucitado. Cristo vendrá de nuevo.<br><br><strong>Sacerdote:</strong> Y nosotros ofrecemos nuestro sacrificio de alabanza y acción de gracias a ti, oh Señor de todo; presentándote, de tus propias dádivas, estos dones. Y te suplicamos humildemente, oh Padre misericordioso, que escuches nuestras oraciones. Y que por los méritos y la muerte de tu Hijo Jesucristo, y por la fe en su sangre, nosotros y toda tu Iglesia obtengamos la remisión de nuestros pecados, y todos los demás beneficios de su pasión. Por Cristo, con él y en él, en la unidad del Espíritu Santo, todo honor y gloria son tuyos, Padre Todopoderoso, ahora y por siempre.<br><strong>Pueblo:</strong> AMÉN.</p>`,
+                            communionRite: `<h3>Rito de la Comunión</h3><p class="liturgy-text rubric">(Todos de pie)</p><p class="liturgy-text"><strong>Sacerdote:</strong> Y ahora, como nuestro Salvador Cristo nos ha enseñado, nos atrevemos a decir:<br><strong>Sacerdote y Pueblo:</strong> Padre nuestro que estás en el cielo, santificado sea tu Nombre, venga tu reino, hágase tu voluntad, en la tierra como en el cielo. Danos hoy nuestro pan de cada día. Y perdónanos nuestras deudas, como también nosotros perdonamos a nuestros deudores. Y no nos dejes caer en tentación, mas líbranos del mal. Porque tuyo es el reino, y el poder, y la gloria, por siempre y para siempre. Amén.<br><br><span class="rubric">El Sacerdote parte el Pan consagrado. Se puede guardar un breve silencio.</span><br><br><strong>Sacerdote:</strong> ¡Aleluya! Cristo, nuestra Pascua, es sacrificado por nosotros;<br><strong>Pueblo:</strong> Por lo tanto, celebremos la fiesta. ¡Aleluya!<br><br><strong>Sacerdote y Pueblo:</strong> Cordero de Dios, que quitas el pecado del mundo, ten piedad de nosotros. Cordero de Dios, que quitas el pecado del mundo, ten piedad de nosotros. Cordero de Dios, que quitas el pecado del mundo, concédenos la paz.<br><br><span class="rubric">El Sacerdote reza en silencio:</span><br><span class="rubric">Señor Jesucristo, Hijo de Dios vivo, que por voluntad del Padre, cooperando el Espíritu Santo, diste con tu muerte la vida al mundo, líbrame, por la recepción de tu santísimo Cuerpo y Sangre, de todas mis iniquidades y de todo mal. Concédeme cumplir siempre tus mandamientos y jamás permitas que me separe de ti.</span><br><br><strong>Sacerdote:</strong> Los dones de Dios para el Pueblo de Dios.<br><em class="rubric">(El pueblo recibe la Sagrada Comunión.)</em><br><br><span class="rubric">Después de la Comunión, el Sacerdote purifica los vasos sagrados, diciendo en silencio:</span><br><span class="rubric">El Cuerpo de nuestro Señor Jesucristo, que fue dado por mí, preserve mi cuerpo y alma para la vida eterna. La Sangre de nuestro Señor Jesucristo, que fue derramada por mí, preserve mi cuerpo y alma para la vida eterna. Lo que hemos recibido con nuestros labios, oh Señor, que lo recibamos con corazones puros, y que de un don temporal se convierta para nosotros en un remedio eterno.</span></p>`,
+                            acnaPostCommunion: `<h3>Oración Post-Comunión (ACNA)</h3><p class="liturgy-text rubric">(La congregación se pone de pie)</p><p class="liturgy-text"><strong>Sacerdote y Pueblo:</strong><br>Padre Celestial, te damos gracias por alimentarnos con el alimento espiritual del preciosísimo Cuerpo y Sangre de tu Hijo nuestro Salvador Jesucristo; y por asegurarnos en estos santos misterios que somos miembros vivos de tu Hijo e herederos de tu reino eterno. Y ahora, Padre, envíanos a hacer la obra que nos has dado que hagamos, a amarte y servirte como testigos fieles de Cristo nuestro Señor. A él, a ti y al Espíritu Santo, sea honor y gloria, ahora y por siempre. Amén.</p>`,
+                            concludingRites: `<h3>Bendición y Despedida</h3><p class="liturgy-text"><strong>Sacerdote:</strong> La paz de Dios, que sobrepasa todo entendimiento, guarde sus corazones y sus mentes en el conocimiento y el amor de Dios, y de su Hijo Jesucristo nuestro Señor; y la bendición de Dios Todopoderoso, el Padre, el Hijo y el Espíritu Santo, sea con ustedes, y permanezca con ustedes siempre. Amén.<br><br><strong>Diácono o Sacerdote:</strong> Vayan en paz para amar y servir al Señor.<br><strong>Pueblo:</strong> Demos gracias a Dios.</p><p class="liturgy-text rubric">(Se puede cantar un himno final mientras el clero y los ministros procesionan hacia la salida)</p>`
+                        };
+                },
+
+                downloadAsDocx() {
+                    try {
+                        const contentElement = document.getElementById('full-liturgy-content');
+                        const titleElement = document.getElementById('full-liturgy-title');
+                        const subtitleElement = document.getElementById('full-liturgy-subtitle');
+
+                        if (!contentElement || !titleElement || !subtitleElement) {
+                            throw new Error("Elementos necesarios para DOCX no encontrados.");
+                        }
+                        if (typeof htmlDocx === 'undefined' || typeof saveAs === 'undefined') {
+                            console.error("html-docx-js or FileSaver.js not loaded.");
+                            // No usar alert()
+                            return;
+                        }
+
+                        const liturgyContent = contentElement.innerHTML;
+                        const title = titleElement.textContent || 'Liturgia';
+                        const subtitle = subtitleElement.textContent || '';
+
+                        const header = `<div style="text-align: center; font-family: 'Times New Roman', Times, serif;">
+                            <h1 style="font-size: 16pt; font-weight: bold;">${title}</h1>
+                            <p style="font-size: 12pt; font-style: italic;">${subtitle}</p>
+                        </div><br>`;
+                        
+                        // Limpiar contenido para DOCX (quitar superíndices de referencias)
+                        const preparedContent = liturgyContent.replace(/<span class="ref-link".*?>(.*?)<\/span>/g, '');
+
+                        const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style> .rubric { color: #dc2626; font-style: italic; } h2 {font-size: 1.5rem; font-weight: 700; color: #0d9488; margin-top: 1.5rem; margin-bottom: 0.75rem; border-bottom: 2px solid #99f6e4; padding-bottom: 0.25rem;} h3 {font-size: 1.25rem; font-weight: 600; color: #115e59; margin-top: 1.25rem; margin-bottom: 0.5rem;} p {margin-bottom: 1rem; line-height: 1.6;} </style></head><body style="font-family: 'Times New Roman', Times, serif; font-size: 11pt;">${header}${preparedContent}</body></html>`;
+
+
+                        const converted = htmlDocx.asBlob(fullHtml);
+                        const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'liturgia'}.docx`;
+                        saveAs(converted, fileName);
+
+                    } catch (e) {
+                         console.error("Error generating DOCX:", e);
+                         // No usar alert()
+                    }
+                },
+
+                printLiturgy() {
+                     try {
+                        const titleElement = document.getElementById('full-liturgy-title');
+                        const subtitleElement = document.getElementById('full-liturgy-subtitle');
+                        const contentElement = document.getElementById('full-liturgy-content');
+
+                        if (!titleElement || !subtitleElement || !contentElement) {
+                             throw new Error("Elementos necesarios para imprimir no encontrados.");
+                        }
+
+                        const title = titleElement.textContent;
+                        const subtitle = subtitleElement.textContent;
+
+                        let printHeader = contentElement.querySelector('.print-only-header');
+                        if (!printHeader) {
+                            printHeader = document.createElement('div');
+                            printHeader.className = 'print-only-header';
+                            contentElement.prepend(printHeader);
+                        }
+                        printHeader.innerHTML = `<h1 class="print-title">${title}</h1><p class="print-subtitle">${subtitle}</p>`;
+
+                        window.print();
+
+                    } catch (error) {
+                        console.error("Error preparing for print:", error);
+                    }
+                },
+
+                getSeasonColorForDate(date) {
+                    const baseInfo = this.calculateBaseLiturgyInfo(date);
+                    return baseInfo ? baseInfo.seasonColor : '#16a34a';
+                }
+            },
+
+
+            // --- EVENTS ---
+             events: {
+                setup() {
+                    const ui = App.ui;
+                    const els = ui.elements;
+                    console.log("Setting up event listeners...");
+
+                    // Splash Screen Fade Out (REMOVED - Handled in loadAllDataFromFirestore)
+
+                    // Main Navigation Buttons
+                    Object.entries(els.mainNavButtons).forEach(([viewName, button]) => {
+                         if (button) {
+                             button.addEventListener('click', (e) => {
+                                 e.preventDefault();
+                                 ui.switchView(viewName);
+                             });
+                         } else {
+                              console.warn(`Nav button element not found for: ${viewName}`);
+                         }
+                    });
+
+                    // Liturgy Card Click (event delegation)
+                    els.liturgicalAccordionContainer?.addEventListener('click', (e) => {
+                        const card = e.target.closest('.liturgical-card');
+                        if (card && card.dataset.date) {
+                             const dateObj = new Date(card.dataset.date + 'T00:00:00Z');
+                             if (!isNaN(dateObj)) {
+                                ui.showFullLiturgy(dateObj);
+                             } else {
+                                 console.error("Invalid date string on card:", card.dataset.date);
+                             }
+                        }
+                    });
+
+                    // Accordion Toggle (event delegation)
+                    document.body.addEventListener('click', (e) => {
+                        const header = e.target.closest('.accordion-header');
+                        if (header) {
+                            const contentId = header.getAttribute('aria-controls');
+                            const content = document.getElementById(contentId);
+                            if (content) {
+                                const isExpanded = header.getAttribute('aria-expanded') === 'true';
+                                header.setAttribute('aria-expanded', String(!isExpanded));
+                                content.classList.toggle('hidden');
+                            } else {
+                                console.warn(`Accordion content not found for ID: ${contentId}`);
+                            }
+                        }
+                    });
+
+                    // Full View Back Buttons
+                    els.backToCalendarBtn?.addEventListener('click', () => ui.hideFullLiturgy());
+                    els.backFromTextBtn?.addEventListener('click', () => ui.hideFullTextView());
+
+                    // Full View Action Buttons
+                    els.printBtn?.addEventListener('click', () => App.services.printLiturgy());
+                    els.downloadDocxBtn?.addEventListener('click', () => App.services.downloadAsDocx());
+
+                    // Mobile Menu Toggle
+                    els.hamburgerBtn?.addEventListener('click', () => ui.openMobileMenu());
+                    els.closeMenuBtn?.addEventListener('click', () => ui.closeMobileMenu());
+                    els.mobileNavLinks?.addEventListener('click', (e) => {
+                         const link = e.target.closest('.mobile-nav-link');
+                        if (link && link.dataset.view) {
+                            e.preventDefault();
+                            ui.switchView(link.dataset.view);
+                            ui.closeMobileMenu();
+                        } else if (link && link.hasAttribute('href')) {
+                             ui.closeMobileMenu();
+                        }
+                    });
+
+                    // Header Hide on Scroll
+                    let lastScrollTop = 0;
+                    window.addEventListener("scroll", () => {
+                        let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                        if (els.mainHeader) {
+                            if (scrollTop > lastScrollTop && scrollTop > 100) {
+                                els.mainHeader.classList.add('header-hidden');
+                            } else if (scrollTop < lastScrollTop || scrollTop <= 100) {
+                                els.mainHeader.classList.remove('header-hidden');
+                            }
+                        }
+                        lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+                    }, { passive: true });
+
+                    // Logo Uploader
+                    els.uploadLogoBtn?.addEventListener('click', () => els.logoUploader?.click());
+                    els.logoUploader?.addEventListener('change', (event) => {
+                        const file = event.target.files?.[0];
+                        if (file && (els.logoImage || els.logoImageMobile || els.logoImageHeader)) {
+                            if (!file.type.startsWith('image/')) {
+                                console.warn("Invalid file type, not an image.");
+                                if(els.logoUploader) els.logoUploader.value = '';
+                                return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                try {
+                                     const result = e.target?.result;
+                                     if(result) {
+                                         // *** FIX: Actualizar los 3 elementos del logo ***
+                                         if (els.logoImage) els.logoImage.src = result;
+                                         if (els.logoImageMobile) els.logoImageMobile.src = result;
+                                         if (els.logoImageHeader) els.logoImageHeader.src = result;
+                                         localStorage.setItem('userLogo', result);
+                                     } else { throw new Error("FileReader result is missing."); }
+                                } catch (error) {
+                                     console.error("Error saving logo:", error);
+                                }
+                            };
+                             reader.onerror = (e) => {
+                                console.error("Error reading file:", e);
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                         if(els.logoUploader) els.logoUploader.value = '';
+                    });
+
+                    // Theological Term Popup (event delegation)
+                    document.body.addEventListener('click', (e) => {
+                       const refLink = e.target.closest('.ref-link');
+                       if (refLink && refLink.dataset.term) {
+                            try {
+                                const termData = JSON.parse(refLink.dataset.term);
+                                ui.showTheologyPopup(termData);
+                            } catch (err) {
+                                console.error("Error parsing term data:", err, refLink.dataset.term);
+                            }
+                       }
+                    });
+                    // Popup Close Handlers
+                    els.theologyPopupClose?.addEventListener('click', () => ui.closeTheologyPopup());
+                    els.theologyPopupOverlay?.addEventListener('click', () => ui.closeTheologyPopup());
+
+                    // Study Material Button Clicks (event delegation)
+                    els.studyMaterialContainer?.addEventListener('click', (e) => {
+                        const button = e.target.closest('.study-internal-btn');
+                        if (button && button.dataset.internalId) {
+                            const internalId = button.dataset.internalId;
+                            console.log("Internal study button clicked:", internalId);
+                            if (internalId === 'anglocatholic') {
+                                if (App.data.angloCatholicLiturgy) {
+                                    ui.showFullTextView(App.data.angloCatholicLiturgy);
+                                }
+                            }
+                         }
+                    });
+
+                    console.log("Event listeners set up completed.");
+                }
+            },
+
+
+            // --- INIT ---
+            init() {
+                 try {
+                     console.log("Initializing App...");
+                     this.ui.selectElements();
+                     this.events.setup();
+                     this.ui.loadLogoFromStorage();
+
+                      console.log("Requesting initial data load from Firestore...");
+                      this.services.loadAllDataFromFirestore();
+
+                     console.log("App init sequence complete. Waiting for data...");
+                 } catch (error) {
+                     console.error("CRITICAL Error during App initialization:", error);
+                      document.body.innerHTML = `<div class="p-4 m-4 bg-red-100 border border-red-400 text-red-700 rounded relative" role="alert"><strong class="font-bold">Error Crítico de Aplicación!</strong><span class="block sm:inline"> La aplicación no pudo iniciarse (${error.message}). Intenta recargar la página.</span></div>`;
+                      const loadingOverlay = document.getElementById('loading-overlay');
+                      if (loadingOverlay) loadingOverlay.style.display = 'none';
+                      const splash = document.getElementById('splash-screen');
+                      if(splash) splash.style.display = 'none';
+                 }
+            }
+        };
+
+         window.App = App;
+    </script>
+</body>
+</html>
+
